@@ -1,6 +1,10 @@
 ('D:\\Personal '
  'Projects\\Jetbrains\\Pycharm\\Katonagari\\build\\Katonagari\\PYZ-00.pyz',
- [('__future__',
+ [('Utils', '-', 'PYMODULE'),
+  ('Utils.Panel',
+   'D:\\Personal Projects\\Jetbrains\\Pycharm\\Katonagari\\Utils\\Panel.py',
+   'PYMODULE'),
+  ('__future__',
    'C:\\Users\\ASUS\\AppData\\Local\\Programs\\Python\\Python312\\Lib\\__future__.py',
    'PYMODULE'),
   ('_aix_support',

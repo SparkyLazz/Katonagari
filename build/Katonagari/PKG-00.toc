@@ -155,33 +155,21 @@
   ('VCRUNTIME140_1.dll',
    'C:\\Users\\ASUS\\AppData\\Local\\Programs\\Python\\Python312\\VCRUNTIME140_1.dll',
    'BINARY'),
-  ('textual-7.4.0.dist-info\\RECORD',
-   'D:\\Personal '
-   'Projects\\Jetbrains\\Pycharm\\Katonagari\\.venv\\Lib\\site-packages\\textual-7.4.0.dist-info\\RECORD',
-   'DATA'),
-  ('textual-7.4.0.dist-info\\REQUESTED',
-   'D:\\Personal '
-   'Projects\\Jetbrains\\Pycharm\\Katonagari\\.venv\\Lib\\site-packages\\textual-7.4.0.dist-info\\REQUESTED',
-   'DATA'),
   ('textual-7.4.0.dist-info\\METADATA',
    'D:\\Personal '
    'Projects\\Jetbrains\\Pycharm\\Katonagari\\.venv\\Lib\\site-packages\\textual-7.4.0.dist-info\\METADATA',
    'DATA'),
-  ('textual-7.4.0.dist-info\\LICENSE',
+  ('attrs-25.4.0.dist-info\\licenses\\LICENSE',
    'D:\\Personal '
-   'Projects\\Jetbrains\\Pycharm\\Katonagari\\.venv\\Lib\\site-packages\\textual-7.4.0.dist-info\\LICENSE',
-   'DATA'),
-  ('textual-7.4.0.dist-info\\INSTALLER',
-   'D:\\Personal '
-   'Projects\\Jetbrains\\Pycharm\\Katonagari\\.venv\\Lib\\site-packages\\textual-7.4.0.dist-info\\INSTALLER',
-   'DATA'),
-  ('attrs-25.4.0.dist-info\\RECORD',
-   'D:\\Personal '
-   'Projects\\Jetbrains\\Pycharm\\Katonagari\\.venv\\Lib\\site-packages\\attrs-25.4.0.dist-info\\RECORD',
+   'Projects\\Jetbrains\\Pycharm\\Katonagari\\.venv\\Lib\\site-packages\\attrs-25.4.0.dist-info\\licenses\\LICENSE',
    'DATA'),
   ('attrs-25.4.0.dist-info\\WHEEL',
    'D:\\Personal '
    'Projects\\Jetbrains\\Pycharm\\Katonagari\\.venv\\Lib\\site-packages\\attrs-25.4.0.dist-info\\WHEEL',
+   'DATA'),
+  ('textual-7.4.0.dist-info\\WHEEL',
+   'D:\\Personal '
+   'Projects\\Jetbrains\\Pycharm\\Katonagari\\.venv\\Lib\\site-packages\\textual-7.4.0.dist-info\\WHEEL',
    'DATA'),
   ('attrs-25.4.0.dist-info\\INSTALLER',
    'D:\\Personal '
@@ -191,13 +179,25 @@
    'D:\\Personal '
    'Projects\\Jetbrains\\Pycharm\\Katonagari\\.venv\\Lib\\site-packages\\attrs-25.4.0.dist-info\\METADATA',
    'DATA'),
-  ('attrs-25.4.0.dist-info\\licenses\\LICENSE',
+  ('textual-7.4.0.dist-info\\REQUESTED',
    'D:\\Personal '
-   'Projects\\Jetbrains\\Pycharm\\Katonagari\\.venv\\Lib\\site-packages\\attrs-25.4.0.dist-info\\licenses\\LICENSE',
+   'Projects\\Jetbrains\\Pycharm\\Katonagari\\.venv\\Lib\\site-packages\\textual-7.4.0.dist-info\\REQUESTED',
    'DATA'),
-  ('textual-7.4.0.dist-info\\WHEEL',
+  ('textual-7.4.0.dist-info\\RECORD',
    'D:\\Personal '
-   'Projects\\Jetbrains\\Pycharm\\Katonagari\\.venv\\Lib\\site-packages\\textual-7.4.0.dist-info\\WHEEL',
+   'Projects\\Jetbrains\\Pycharm\\Katonagari\\.venv\\Lib\\site-packages\\textual-7.4.0.dist-info\\RECORD',
+   'DATA'),
+  ('attrs-25.4.0.dist-info\\RECORD',
+   'D:\\Personal '
+   'Projects\\Jetbrains\\Pycharm\\Katonagari\\.venv\\Lib\\site-packages\\attrs-25.4.0.dist-info\\RECORD',
+   'DATA'),
+  ('textual-7.4.0.dist-info\\LICENSE',
+   'D:\\Personal '
+   'Projects\\Jetbrains\\Pycharm\\Katonagari\\.venv\\Lib\\site-packages\\textual-7.4.0.dist-info\\LICENSE',
+   'DATA'),
+  ('textual-7.4.0.dist-info\\INSTALLER',
+   'D:\\Personal '
+   'Projects\\Jetbrains\\Pycharm\\Katonagari\\.venv\\Lib\\site-packages\\textual-7.4.0.dist-info\\INSTALLER',
    'DATA'),
   ('base_library.zip',
    'D:\\Personal '
