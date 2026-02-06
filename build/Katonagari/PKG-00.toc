@@ -95,6 +95,15 @@
   ('_wmi.pyd',
    'C:\\Users\\ASUS\\AppData\\Local\\Programs\\Python\\Python312\\DLLs\\_wmi.pyd',
    'EXTENSION'),
+  ('_uuid.pyd',
+   'C:\\Users\\ASUS\\AppData\\Local\\Programs\\Python\\Python312\\DLLs\\_uuid.pyd',
+   'EXTENSION'),
+  ('_overlapped.pyd',
+   'C:\\Users\\ASUS\\AppData\\Local\\Programs\\Python\\Python312\\DLLs\\_overlapped.pyd',
+   'EXTENSION'),
+  ('_asyncio.pyd',
+   'C:\\Users\\ASUS\\AppData\\Local\\Programs\\Python\\Python312\\DLLs\\_asyncio.pyd',
+   'EXTENSION'),
   ('msgpack\\_cmsgpack.cp312-win_amd64.pyd',
    'D:\\Personal '
    'Projects\\Jetbrains\\Pycharm\\Katonagari\\.venv\\Lib\\site-packages\\msgpack\\_cmsgpack.cp312-win_amd64.pyd',
@@ -110,9 +119,6 @@
   ('multidict\\_multidict.cp312-win_amd64.pyd',
    'D:\\Personal '
    'Projects\\Jetbrains\\Pycharm\\Katonagari\\.venv\\Lib\\site-packages\\multidict\\_multidict.cp312-win_amd64.pyd',
-   'EXTENSION'),
-  ('_asyncio.pyd',
-   'C:\\Users\\ASUS\\AppData\\Local\\Programs\\Python\\Python312\\DLLs\\_asyncio.pyd',
    'EXTENSION'),
   ('aiohttp\\_http_writer.cp312-win_amd64.pyd',
    'D:\\Personal '
@@ -134,12 +140,6 @@
    'D:\\Personal '
    'Projects\\Jetbrains\\Pycharm\\Katonagari\\.venv\\Lib\\site-packages\\aiohttp\\_websocket\\reader_c.cp312-win_amd64.pyd',
    'EXTENSION'),
-  ('_uuid.pyd',
-   'C:\\Users\\ASUS\\AppData\\Local\\Programs\\Python\\Python312\\DLLs\\_uuid.pyd',
-   'EXTENSION'),
-  ('_overlapped.pyd',
-   'C:\\Users\\ASUS\\AppData\\Local\\Programs\\Python\\Python312\\DLLs\\_overlapped.pyd',
-   'EXTENSION'),
   ('VCRUNTIME140.dll',
    'C:\\Users\\ASUS\\AppData\\Local\\Programs\\Python\\Python312\\VCRUNTIME140.dll',
    'BINARY'),
@@ -155,13 +155,21 @@
   ('VCRUNTIME140_1.dll',
    'C:\\Users\\ASUS\\AppData\\Local\\Programs\\Python\\Python312\\VCRUNTIME140_1.dll',
    'BINARY'),
-  ('textual-7.4.0.dist-info\\WHEEL',
+  ('attrs-25.4.0.dist-info\\INSTALLER',
    'D:\\Personal '
-   'Projects\\Jetbrains\\Pycharm\\Katonagari\\.venv\\Lib\\site-packages\\textual-7.4.0.dist-info\\WHEEL',
+   'Projects\\Jetbrains\\Pycharm\\Katonagari\\.venv\\Lib\\site-packages\\attrs-25.4.0.dist-info\\INSTALLER',
    'DATA'),
   ('textual-7.4.0.dist-info\\LICENSE',
    'D:\\Personal '
    'Projects\\Jetbrains\\Pycharm\\Katonagari\\.venv\\Lib\\site-packages\\textual-7.4.0.dist-info\\LICENSE',
+   'DATA'),
+  ('textual-7.4.0.dist-info\\WHEEL',
+   'D:\\Personal '
+   'Projects\\Jetbrains\\Pycharm\\Katonagari\\.venv\\Lib\\site-packages\\textual-7.4.0.dist-info\\WHEEL',
+   'DATA'),
+  ('attrs-25.4.0.dist-info\\WHEEL',
+   'D:\\Personal '
+   'Projects\\Jetbrains\\Pycharm\\Katonagari\\.venv\\Lib\\site-packages\\attrs-25.4.0.dist-info\\WHEEL',
    'DATA'),
   ('textual-7.4.0.dist-info\\REQUESTED',
    'D:\\Personal '
@@ -171,13 +179,13 @@
    'D:\\Personal '
    'Projects\\Jetbrains\\Pycharm\\Katonagari\\.venv\\Lib\\site-packages\\textual-7.4.0.dist-info\\RECORD',
    'DATA'),
-  ('attrs-25.4.0.dist-info\\INSTALLER',
+  ('attrs-25.4.0.dist-info\\RECORD',
    'D:\\Personal '
-   'Projects\\Jetbrains\\Pycharm\\Katonagari\\.venv\\Lib\\site-packages\\attrs-25.4.0.dist-info\\INSTALLER',
+   'Projects\\Jetbrains\\Pycharm\\Katonagari\\.venv\\Lib\\site-packages\\attrs-25.4.0.dist-info\\RECORD',
    'DATA'),
-  ('textual-7.4.0.dist-info\\METADATA',
+  ('textual-7.4.0.dist-info\\INSTALLER',
    'D:\\Personal '
-   'Projects\\Jetbrains\\Pycharm\\Katonagari\\.venv\\Lib\\site-packages\\textual-7.4.0.dist-info\\METADATA',
+   'Projects\\Jetbrains\\Pycharm\\Katonagari\\.venv\\Lib\\site-packages\\textual-7.4.0.dist-info\\INSTALLER',
    'DATA'),
   ('attrs-25.4.0.dist-info\\licenses\\LICENSE',
    'D:\\Personal '
@@ -187,17 +195,9 @@
    'D:\\Personal '
    'Projects\\Jetbrains\\Pycharm\\Katonagari\\.venv\\Lib\\site-packages\\attrs-25.4.0.dist-info\\METADATA',
    'DATA'),
-  ('attrs-25.4.0.dist-info\\WHEEL',
+  ('textual-7.4.0.dist-info\\METADATA',
    'D:\\Personal '
-   'Projects\\Jetbrains\\Pycharm\\Katonagari\\.venv\\Lib\\site-packages\\attrs-25.4.0.dist-info\\WHEEL',
-   'DATA'),
-  ('textual-7.4.0.dist-info\\INSTALLER',
-   'D:\\Personal '
-   'Projects\\Jetbrains\\Pycharm\\Katonagari\\.venv\\Lib\\site-packages\\textual-7.4.0.dist-info\\INSTALLER',
-   'DATA'),
-  ('attrs-25.4.0.dist-info\\RECORD',
-   'D:\\Personal '
-   'Projects\\Jetbrains\\Pycharm\\Katonagari\\.venv\\Lib\\site-packages\\attrs-25.4.0.dist-info\\RECORD',
+   'Projects\\Jetbrains\\Pycharm\\Katonagari\\.venv\\Lib\\site-packages\\textual-7.4.0.dist-info\\METADATA',
    'DATA'),
   ('base_library.zip',
    'D:\\Personal '
