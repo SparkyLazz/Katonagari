@@ -15,8 +15,17 @@ class Dashboard(Screen):
         width: auto;
         padding: 0 4;
     }
-    """
 
+    TabbedContent {
+        height: 1fr;
+    }
+
+    Home {
+        height: 1fr;
+        width: 100%;
+        padding: 0 1;
+    }
+    """
     def compose(self) -> ComposeResult:
         yield Header()
         with TabbedContent():
