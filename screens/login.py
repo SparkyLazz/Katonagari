@@ -1,6 +1,5 @@
 from textual.app import ComposeResult
 from textual.containers import Vertical
-from textual.getters import query_one
 from textual.screen import ModalScreen
 from textual.widgets import Input
 
