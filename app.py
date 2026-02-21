@@ -5,7 +5,6 @@ from widgets.header import Header
 
 
 class Katonagari(App):
-    theme = "dracula"
     def compose(self) -> ComposeResult:
         yield Footer()
     def on_mount(self) -> None:
