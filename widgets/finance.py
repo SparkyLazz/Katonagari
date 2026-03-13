@@ -27,7 +27,7 @@ from textual.reactive import reactive
 from textual.screen import ModalScreen
 from textual.widget import Widget
 from textual.widgets import (
-    Button, DataTable, Input, Label, Rule,
+    Button, DataTable, Input, Label, ProgressBar, Rule,
     Select, Static, TabbedContent, TabPane,
 )
 
@@ -459,10 +459,9 @@ class FinanceSidebar(Widget):
 # ══════════════════════════════════════════════════════════════════════════════
 
 class AnalysisPanel(Widget):
-    """Income vs Expense ASCII bar chart with period selector."""
+    """Income vs Expense per-month cards with ProgressBars and round borders."""
 
     _PERIODS = [("3M", 3), ("6M", 6), ("12M", 12)]
-    _BAR_W   = 16
 
     DEFAULT_CSS = """
     AnalysisPanel {
@@ -472,43 +471,59 @@ class AnalysisPanel(Widget):
         padding: 0 1 1 1;
     }
 
+    /* ── period selector ─────────────────────────────── */
     #an-period-row {
         height: 1;
         layout: horizontal;
-        margin-bottom: 2;
+        margin-bottom: 1;
     }
     .an-period-lbl {
         width: auto; height: 1;
-        color: $text-muted;
-        content-align: left middle;
-        padding: 0 1;
+        color: $text-muted; content-align: left middle; padding: 0 1;
     }
     .an-period-btn {
         width: auto; height: 1;
         background: transparent; border: none;
         color: $text-muted; padding: 0 1; margin-right: 1;
     }
-    .an-period-btn.active {
-        color: $primary; text-style: bold underline;
-        border: none;
-    }
-    .an-period-btn:hover { color: $text; border: none; }
-    .an-period-btn:focus { border: none; }
+    .an-period-btn.active { color: $primary; text-style: bold underline; border: none; }
+    .an-period-btn:hover  { color: $text; border: none; }
+    .an-period-btn:focus  { border: none; }
 
+    /* ── chart area ──────────────────────────────────── */
     #an-chart { width: 100%; height: auto; layout: vertical; }
-    .an-head { height: 1; color: $text; text-style: bold; margin-top: 1; }
-    .an-row  { height: 1; layout: horizontal; width: 100%; }
-    .an-lbl  { width: 5; color: $text-muted; }
-    .an-bar  { width: 1fr; overflow: hidden hidden; }
-    .an-amt  { width: 10; text-align: right; }
-    .an-net  { height: 1; color: $text-muted; padding-left: 6; }
-    .an-sep  { height: 1; }
 
+    /* per-month card */
+    .an-card {
+        width: 100%;
+        height: auto;
+        border: round $surface-lighten-2;
+        padding: 0 1 1 1;
+        margin-bottom: 1;
+        layout: vertical;
+    }
+    .an-card-now { border: round $primary; }
+
+    /* rows inside a card */
+    .an-row { height: 1; layout: horizontal; width: 100%; }
+    .an-lbl { width: 5; color: $text-muted; content-align: left middle; }
+    .an-amt { width: 12; text-align: right; content-align: right middle; }
+    .an-net { height: 1; color: $text-muted; }
+
+    /* progress bars — colour the filled portion per type */
+    .an-inc-bar { width: 1fr; margin-bottom: 1; }
+    .an-exp-bar { width: 1fr; margin-bottom: 1; }
+    .an-inc-bar > .bar--bar { color: $success; }
+    .an-exp-bar > .bar--bar { color: $error;   }
+    .an-inc-bar > .bar--complete { color: $success; }
+    .an-exp-bar > .bar--complete { color: $error;   }
+
+    /* ── summary box ─────────────────────────────────── */
     #an-sum {
         width: 100%; height: auto;
         border: round $surface-lighten-2;
         padding: 0 1 1 1;
-        margin-top: 2;
+        margin-top: 1;
     }
     .an-sum-head { height: 1; color: $primary; text-style: bold; }
     .an-sum-row  { height: 1; layout: horizontal; width: 100%; }
@@ -526,7 +541,7 @@ class AnalysisPanel(Widget):
                              classes="an-period-btn" + (" active" if n == 6 else ""))
         yield Vertical(id="an-chart")
         with Vertical(id="an-sum"):
-            yield Label("── Summary ──────────────────────────", classes="an-sum-head")
+            yield Label("Summary", classes="an-sum-head")
             with Horizontal(classes="an-sum-row"):
                 yield Label("Total Income",  classes="an-sum-lbl")
                 yield Label("", id="an-s-inc", classes="an-sum-val")
@@ -566,39 +581,60 @@ class AnalysisPanel(Widget):
             1,
         )
 
-        def _bar(val: float, color: str) -> str:
-            filled = max(1, int(val / max_val * self._BAR_W)) if val > 0 else 0
-            return (f"[{color}]{'█' * filled}[/]"
-                    f"[dim]{'░' * (self._BAR_W - filled)}[/]")
-
         today = date.today()
         for i, m in enumerate(months):
-            name = f"{_MONTH_NAMES[m['month'] - 1]} '{str(m['year'])[2:]}"
-            now  = m["year"] == today.year and m["month"] == today.month
-            head = (f"[yellow bold]{name}  ◂ current[/]" if now
-                    else f"[dim white]{name}[/]")
-            chart.mount(Label(head, classes="an-head", markup=True))
+            name   = f"{_MONTH_NAMES[m['month'] - 1]} '{str(m['year'])[2:]}"
+            is_now = m["year"] == today.year and m["month"] == today.month
+            net    = m["net"]
+            nc     = "green" if net >= 0 else "red"
+            ns     = ("+" if net >= 0 else "") + fmt_rp_short(net)
 
-            ir = Horizontal(classes="an-row"); chart.mount(ir)
-            ir.mount(Label("INC  ", classes="an-lbl"))
-            ir.mount(Label(_bar(m["income"],  "green"), classes="an-bar", markup=True))
-            ir.mount(Label(f"[green]{fmt_rp_short(m['income'])}[/]",
-                           classes="an-amt", markup=True))
+            # card container — border changes colour for current month
+            card_cls = "an-card an-card-now" if is_now else "an-card"
+            card = Vertical(classes=card_cls)
+            if is_now:
+                card.border_title = f"{name}  ◂ current"
+            else:
+                card.border_title = name
+            chart.mount(card)
 
-            er = Horizontal(classes="an-row"); chart.mount(er)
-            er.mount(Label("EXP  ", classes="an-lbl"))
-            er.mount(Label(_bar(m["expense"], "red"),   classes="an-bar", markup=True))
-            er.mount(Label(f"[red]{fmt_rp_short(m['expense'])}[/]",
-                           classes="an-amt", markup=True))
+            # INC header row
+            inc_hdr = Horizontal(classes="an-row")
+            card.mount(inc_hdr)
+            inc_hdr.mount(Label("INC", classes="an-lbl"))
+            inc_hdr.mount(Label(
+                f"[green]{fmt_rp_short(m['income'])}[/]",
+                markup=True, classes="an-amt"))
 
-            net = m["net"]
-            nc  = "green" if net >= 0 else "red"
-            ns  = ("+" if net >= 0 else "") + fmt_rp_short(net)
-            chart.mount(Label(f"[{nc}]{ns}[/] net",
-                              classes="an-net", markup=True))
-            if i < len(months) - 1:
-                chart.mount(Label("", classes="an-sep"))
+            # INC progress bar
+            card.mount(ProgressBar(
+                total=max_val, id=f"an-inc-{i}",
+                show_eta=False, classes="an-inc-bar"))
 
+            # EXP header row
+            exp_hdr = Horizontal(classes="an-row")
+            card.mount(exp_hdr)
+            exp_hdr.mount(Label("EXP", classes="an-lbl"))
+            exp_hdr.mount(Label(
+                f"[red]{fmt_rp_short(m['expense'])}[/]",
+                markup=True, classes="an-amt"))
+
+            # EXP progress bar
+            card.mount(ProgressBar(
+                total=max_val, id=f"an-exp-{i}",
+                show_eta=False, classes="an-exp-bar"))
+
+            # net line
+            card.mount(Label(
+                f"[{nc}]{ns}[/] net",
+                markup=True, classes="an-net"))
+
+        # Set progress values after all widgets are mounted
+        for i, m in enumerate(months):
+            self.query_one(f"#an-inc-{i}", ProgressBar).progress = m["income"]
+            self.query_one(f"#an-exp-{i}", ProgressBar).progress = m["expense"]
+
+        # Update summary
         total_inc = sum(m["income"]  for m in months)
         total_exp = sum(m["expense"] for m in months)
         total_net = total_inc - total_exp
