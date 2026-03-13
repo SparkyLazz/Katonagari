@@ -87,7 +87,6 @@ class StatisticBox(Widget):
         self.query_one("#hostname-label", Label).update(
             f"Host  {uname.node}"
         )
-
         self.query_one("#os-label", Label).update(
             f"OS    {uname.system} {uname.release}"
         )
@@ -96,14 +95,13 @@ class StatisticBox(Widget):
         self.set_interval(2, self.update_stats)
 
     def update_stats(self) -> None:
-        cpu = psutil.cpu_percent()
-        ram = psutil.virtual_memory().percent
-        swp = psutil.swap_memory().percent
+        cpu  = psutil.cpu_percent()
+        ram  = psutil.virtual_memory().percent
+        swp  = psutil.swap_memory().percent
         disk = psutil.disk_usage("/")
 
-        boot = datetime.fromtimestamp(psutil.boot_time())
+        boot   = datetime.fromtimestamp(psutil.boot_time())
         uptime = datetime.now() - boot
-
         hours, rem = divmod(int(uptime.total_seconds()), 3600)
 
         self.query_one("#uptime-label", Label).update(
@@ -113,7 +111,7 @@ class StatisticBox(Widget):
         for bar_id, val in (
             ("#cpu-bar", cpu),
             ("#ram-bar", ram),
-            ("#swp-bar", swp)
+            ("#swp-bar", swp),
         ):
             self.query_one(bar_id, ProgressBar).progress = val
 
@@ -121,13 +119,13 @@ class StatisticBox(Widget):
         self.query_one("#ram-label", Label).update(f"RAM  {ram}%")
         self.query_one("#swp-label", Label).update(f"SWP  {swp}%")
 
-        pct = disk.percent
-        used = disk.used / 1024 ** 3
+        pct   = disk.percent
+        used  = disk.used  / 1024 ** 3
         total = disk.total / 1024 ** 3
 
-        self.query_one("#dsk-bar", ProgressBar).progress = pct
+        self.query_one("#dsk-bar",  ProgressBar).progress = pct
         self.query_one("#dsk-label", Label).update(f"DSK  {pct}%")
-        self.query_one("#dsk-info", Label).update(
+        self.query_one("#dsk-info",  Label).update(
             f"      {used:.1f} / {total:.1f} GB"
         )
 
@@ -154,31 +152,29 @@ class EventRow(Widget):
 
     DOT = {
         "critical": "●",
-        "high": "●",
-        "medium": "○",
-        "low": "○"
+        "high":     "●",
+        "medium":   "○",
+        "low":      "○",
     }
 
     def __init__(self, event: dict, now_str: str) -> None:
         super().__init__()
-        self._ev = event
+        self._ev  = event
         self._now = now_str
 
     def render(self) -> str:
         return ""
 
     def compose(self) -> ComposeResult:
-        ev = self._ev
-
+        ev        = self._ev
         pri_color = PRIORITY[ev["priority"]][0]
         cat_color = CATEGORY_COLOR[ev["category"]]
-        cat_icon = CATEGORY_ICON[ev["category"]]
-
-        dot = self.DOT[ev["priority"]]
-        end = ev.get("end_time") or "99:99"
+        cat_icon  = CATEGORY_ICON[ev["category"]]
+        dot       = self.DOT[ev["priority"]]
+        end       = ev.get("end_time") or "99:99"
 
         is_past = end < self._now and ev["date"] == date.today()
-        is_now = ev["date"] == date.today() and ev["time"] <= self._now <= end
+        is_now  = ev["date"] == date.today() and ev["time"] <= self._now <= end
 
         if is_now:
             self.add_class("ev-now")
@@ -187,11 +183,11 @@ class EventRow(Widget):
 
         due_today = ev.get("deadline") == date.today()
 
-        yield Label(ev["time"], classes="er-time")
-        yield Label(f"[{pri_color}]{dot}[/]", markup=True, classes="er-dot")
-        yield Label(ev["title"], classes="er-title")
+        yield Label(ev["time"],                                  classes="er-time")
+        yield Label(f"[{pri_color}]{dot}[/]", markup=True,      classes="er-dot")
+        yield Label(ev["title"],                                 classes="er-title")
         yield Label(f"[{cat_color}]{cat_icon}[/]", markup=True, classes="er-tag")
-        yield Label("DUE" if due_today else "", classes="er-due")
+        yield Label("DUE" if due_today else "",                  classes="er-due")
 
     def on_click(self) -> None:
         self.post_message(SwitchToSchedule(date.today()))
@@ -208,10 +204,10 @@ class ScheduleBox(Widget):
         padding: 0 2;
     }
 
-    ScheduleBox #sb-date { color: $text-muted; margin-bottom: 1; }
+    ScheduleBox #sb-date    { color: $text-muted; margin-bottom: 1; }
     ScheduleBox .sb-section { color: $primary; text-style: bold; margin-top: 1; }
     ScheduleBox #sb-summary { color: $text-muted; text-style: italic; margin-top: 1; }
-    ScheduleBox #sb-hint { color: $text-disabled; text-style: italic; }
+    ScheduleBox #sb-hint    { color: $text-disabled; text-style: italic; }
     """
 
     def render(self) -> str:
@@ -223,9 +219,13 @@ class ScheduleBox(Widget):
         today_str = f"{date.today().strftime('%A, %B')} {date.today().day}"
 
         yield Label(f"── {today_str} ──", id="sb-date")
-        yield Label("─ Upcoming ─", classes="sb-section")
-        yield Label("Loading…", id="sb-placeholder")
-        yield Label("", id="sb-summary")
+        yield Label("─ Upcoming ─",       classes="sb-section")
+        # ── FIX: placeholder always lives in the tree; we update() it, never
+        #   remove+remount. This prevents the DuplicateIds crash that happened
+        #   when refresh_events() tried to re-mount a widget whose removal had
+        #   silently failed.
+        yield Label("Loading…",           id="sb-placeholder")
+        yield Label("",                   id="sb-summary")
         yield Label("↑ Click any event to open Schedule", id="sb-hint")
 
     def on_mount(self) -> None:
@@ -233,46 +233,48 @@ class ScheduleBox(Widget):
         self.set_interval(60, self.refresh_events)
 
     def refresh_events(self) -> None:
-        now = datetime.now().strftime("%H:%M")
+        now    = datetime.now().strftime("%H:%M")
         events = get_events_for_date(load_events(), date.today())
 
+        # Remove dynamically-mounted EventRow / section widgets from previous
+        # refresh, but leave the static compose() children untouched.
         for row in self.query(EventRow):
             row.remove()
+        for lbl in self.query(".sb-section-dynamic"):
+            lbl.remove()
 
-        try:
-            self.query_one("#sb-placeholder", Label).remove()
-        except Exception:
-            pass
+        placeholder = self.query_one("#sb-placeholder", Label)
+        summary     = self.query_one("#sb-summary",     Label)
+        hint        = self.query_one("#sb-hint",        Label)
 
         if not events:
-            self.mount(Label("No events today.", id="sb-placeholder"))
-            self.query_one("#sb-summary", Label).update("")
+            # Show the placeholder text, hide summary
+            placeholder.display = True
+            placeholder.update("No events today.")
+            summary.update("")
             return
 
-        upcoming = [e for e in events if (e.get("end_time") or e["time"]) >= now]
-        past = [e for e in events if (e.get("end_time") or e["time"]) < now]
+        # Hide the placeholder — EventRows take its place
+        placeholder.display = False
 
-        hint = self.query_one("#sb-hint", Label)
-        summary = self.query_one("#sb-summary", Label)
+        upcoming = [e for e in events if (e.get("end_time") or e["time"]) >= now]
+        past     = [e for e in events if (e.get("end_time") or e["time"]) <  now]
 
         for ev in upcoming[:5]:
             self.mount(EventRow(ev, now), before=hint)
 
         if past:
-            self.mount(Label(f"─ Done ({len(past)}) ─", classes="sb-section"), before=hint)
-
+            sep = Label(f"─ Done ({len(past)}) ─", classes="sb-section sb-section-dynamic")
+            self.mount(sep, before=hint)
             for ev in past[-2:]:
                 self.mount(EventRow(ev, now), before=hint)
 
-        crit = sum(1 for e in events if e["priority"] == "critical")
-        due = sum(1 for e in events if e.get("deadline") == date.today())
-
+        # Summary line
+        crit  = sum(1 for e in events if e["priority"] == "critical")
+        due   = sum(1 for e in events if e.get("deadline") == date.today())
         parts = []
-        if crit:
-            parts.append(f"{crit} critical")
-        if due:
-            parts.append(f"{due} due today")
-
+        if crit: parts.append(f"{crit} critical")
+        if due:  parts.append(f"{due} due today")
         summary.update("  ·  ".join(parts) if parts else f"{len(events)} events")
 
 

@@ -105,20 +105,4 @@ def get_week_dates():
 def _default_events():
     t = date.today()
     def d(n): return t + timedelta(days=n)
-    return [
-        {"id":  1, "title": "Linear Algebra Lecture",      "category": "class",      "priority": "high",     "date": d(0), "time": "08:00", "end_time": "09:30", "location": "Room B204",      "deadline": None, "notes": "Midterm coverage Ch 4-7."},
-        {"id":  2, "title": "Algorithm Design Assignment",  "category": "assignment", "priority": "critical", "date": d(0), "time": "10:00", "end_time": None,    "location": None,             "deadline": d(0), "notes": "Graph traversal + DP. Submit LMS by 23:59."},
-        {"id":  3, "title": "Sprint Standup",               "category": "meeting",    "priority": "medium",   "date": d(0), "time": "13:00", "end_time": "13:30", "location": "Google Meet",    "deadline": None, "notes": "Update Jira before call."},
-        {"id":  4, "title": "Operating Systems Lab",        "category": "class",      "priority": "high",     "date": d(0), "time": "15:00", "end_time": "17:00", "location": "Lab 3 CS Bldg",  "deadline": None, "notes": "Shell scripting. Bring USB with live Linux."},
-        {"id":  5, "title": "Side Project — API Refactor",  "category": "work",       "priority": "medium",   "date": d(0), "time": "20:00", "end_time": "22:00", "location": "Home",           "deadline": d(3), "notes": "Migrate auth service to FastAPI."},
-        {"id":  6, "title": "Data Structures Midterm",      "category": "class",      "priority": "critical", "date": d(1), "time": "09:00", "end_time": "11:00", "location": "Hall A",         "deadline": None, "notes": "Trees, heaps, hash tables. No open book."},
-        {"id":  7, "title": "Code Review — Feature Branch", "category": "work",       "priority": "high",     "date": d(1), "time": "14:00", "end_time": "15:00", "location": "Slack Huddle",   "deadline": d(1), "notes": "Review auth middleware before merge."},
-        {"id":  8, "title": "Research Paper Draft",         "category": "assignment", "priority": "high",     "date": d(1), "time": "19:00", "end_time": None,    "location": None,             "deadline": d(4), "notes": "Sections 3 & 4. Target 1500 words."},
-        {"id":  9, "title": "Networking Lecture",           "category": "class",      "priority": "medium",   "date": d(2), "time": "10:00", "end_time": "11:30", "location": "Room C101",      "deadline": None, "notes": "TCP/IP deep dive. Quiz at end."},
-        {"id": 10, "title": "1:1 with Tech Lead",           "category": "meeting",    "priority": "high",     "date": d(2), "time": "16:00", "end_time": "16:30", "location": "Zoom",           "deadline": None, "notes": "Q2 roadmap + internship extension."},
-        {"id": 11, "title": "Cloud Architecture Quiz",      "category": "class",      "priority": "critical", "date": d(3), "time": "08:00", "end_time": "09:00", "location": "Online LMS",     "deadline": d(3), "notes": "AWS/GCP. Timed 60 min — no retake."},
-        {"id": 12, "title": "Deploy v2.3 to Staging",       "category": "work",       "priority": "high",     "date": d(3), "time": "11:00", "end_time": "13:00", "location": "Remote",         "deadline": d(3), "notes": "Run smoke tests. Rollback plan in runbook."},
-        {"id": 13, "title": "Research Paper Submission",    "category": "assignment", "priority": "critical", "date": d(4), "time": "23:59", "end_time": None,    "location": None,             "deadline": d(4), "notes": "Final via IEEE portal. PDF only."},
-        {"id": 14, "title": "Hackathon Kickoff",            "category": "personal",   "priority": "medium",   "date": d(4), "time": "18:00", "end_time": "20:00", "location": "Innovation Hub", "deadline": None, "notes": "Team of 3. ML + infra track."},
-        {"id": 15, "title": "Hackathon — Demo Day",         "category": "work",       "priority": "critical", "date": d(5), "time": "13:00", "end_time": "17:00", "location": "Innovation Hub", "deadline": None, "notes": "5-min demo. Slides + live fallback."},
-    ]
+    return []
