@@ -4,6 +4,7 @@ from textual.widgets import TabbedContent, TabPane, Label
 from widgets.header import Header
 from widgets.home import Home
 from widgets.finance import Finance
+from widgets.schedule import Schedule
 
 class Dashboard(Screen):
     CSS = """
@@ -32,6 +33,12 @@ class Dashboard(Screen):
         width: 100%;
         padding: 0 1;
     }
+    
+    Schedule {
+        height: 1fr;
+        width: 100%;
+        padding: 0 1;
+    }
     """
     def compose(self) -> ComposeResult:
         yield Header()
@@ -40,3 +47,5 @@ class Dashboard(Screen):
                 yield Home()
             with TabPane("Finance", id="finance"):
                 yield Finance()
+            with TabPane("Schedule", id="schedule"):
+                yield Schedule()

@@ -106,6 +106,23 @@ class StatisticBox(Vertical):
         self.query_one("#dsk-label", Label).update(f"DSK  {dsk_pct}%")
         self.query_one("#dsk-info", Label).update(f"      {used_gb:.1f} / {total_gb:.1f} GB")
 
+class ScheduleBox(Vertical):
+    DEFAULT_CSS = """
+        ScheduleBox {
+            height: auto;
+            border: round $primary;
+            row-span: 2;
+            padding: 0 2;
+        }
+        StatisticBox Label {
+            width: 100%;
+            margin-top: 0;
+            color: $text-muted;
+        }
+    """
+    def compose(self) -> ComposeResult:
+        self.border_title = "Schedule"
+        yield Label("─ System ─", classes="section")
 
 class Home(Widget):
     DEFAULT_CSS = """
@@ -123,7 +140,7 @@ class Home(Widget):
 
     def compose(self) -> ComposeResult:
         yield StatisticBox()
-        yield Static("2", classes="box")
+        yield ScheduleBox()
         yield Static("3", classes="box")
         yield Static("4", classes="box")
         yield Static("5", classes="box")
