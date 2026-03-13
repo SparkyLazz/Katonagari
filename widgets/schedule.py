@@ -1,387 +1,616 @@
-from datetime import date, timedelta
+"""
+schedule.py — Full Schedule tab widget.
+btop-style: dense DataTable, sidebar stats, modal forms, key hints footer.
+"""
+from __future__ import annotations
+
+from datetime import date, datetime, timedelta
+
 from textual.app import ComposeResult
-from textual.widget import Widget
-from textual.widgets import Label, Button, Static
-from textual.containers import Vertical, Horizontal, ScrollableContainer
+from textual.binding import Binding
+from textual.containers import Horizontal, Vertical
+from textual.message import Message
 from textual.reactive import reactive
+from textual.screen import ModalScreen
+from textual.widget import Widget
+from textual.widgets import Button, DataTable, Input, Label, Select, Static
+
 from databases.scheduleData import (
-    get_events_for_date, get_week_dates,
-    PRIORITY, CATEGORY_ICON, CATEGORY_COLOR,
+    CATEGORIES, CATEGORY_COLOR, CATEGORY_ICON, PRIORITIES, PRIORITY,
+    add_event, delete_event, get_events_for_date, get_week_dates,
+    load_events, update_event,
 )
 
+# Textual CSS var → Rich color (for use inside DataTable cells)
+_RICH: dict[str, str] = {
+    "$error":     "red",
+    "$warning":   "yellow",
+    "$primary":   "blue",
+    "$success":   "green",
+    "$accent":    "cyan",
+    "$text-muted":"dim white",
+}
+def _rc(css_var: str) -> str:
+    return _RICH.get(css_var, "white")
 
-# ─── Event Card (full detail) ─────────────────────────────────────────────────
+# ──────────────────────────────────────────────────────────────────────────────
+# Select options
+# ──────────────────────────────────────────────────────────────────────────────
 
-class EventCard(Vertical):
+_PRI_OPTS = [
+    ("● Critical", "critical"),
+    ("● High",     "high"),
+    ("○ Medium",   "medium"),
+    ("○ Low",      "low"),
+]
+_CAT_OPTS = [
+    ("[C] Class",       "class"),
+    ("[A] Assignment",  "assignment"),
+    ("[W] Work",        "work"),
+    ("[M] Meeting",     "meeting"),
+    ("[P] Personal",    "personal"),
+]
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Detail Modal  (read-only)
+# ──────────────────────────────────────────────────────────────────────────────
+
+class DetailModal(ModalScreen):
+    BINDINGS = [("escape,enter,q", "dismiss_modal", "Close")]
+
     DEFAULT_CSS = """
-    EventCard {
+    DetailModal { align: center middle; }
+    #det-box {
+        width: 60;
         height: auto;
-        width: 100%;
-        border: round $surface-lighten-2;
-        padding: 0 2;
-        margin-bottom: 1;
-    }
-    EventCard.priority-critical { border: round $error; }
-    EventCard.priority-high     { border: round $warning; }
-    EventCard.priority-medium   { border: round $primary; }
-    EventCard.priority-low      { border: round $success; }
-
-    EventCard .card-header {
-        layout: horizontal;
-        height: 2;
-        width: 100%;
-    }
-    EventCard .card-time {
-        width: 14;
-        color: $text-muted;
-        text-style: bold;
-    }
-    EventCard .card-title {
-        width: 1fr;
-        text-style: bold;
-        color: $text;
-    }
-    EventCard .card-priority-badge {
-        width: 8;
-        text-align: right;
-        text-style: bold;
-    }
-    EventCard .card-cat-badge {
-        width: 5;
-        text-align: right;
-    }
-    EventCard .card-meta {
-        color: $text-muted;
-        height: auto;
-        width: 100%;
-    }
-    EventCard .card-deadline {
-        color: $error;
-        text-style: bold;
-    }
-    EventCard .card-notes {
-        color: $text-muted;
-        text-style: italic;
-        width: 100%;
-        height: auto;
-    }
-    EventCard .card-divider {
-        color: $surface-lighten-3;
-    }
-
-    EventCard.is-now {
+        border: solid $primary;
         background: $surface;
+        padding: 1 2;
     }
-    EventCard.is-now .card-title {
-        color: $warning;
-    }
-    EventCard.is-past .card-title {
-        color: $text-disabled;
-        text-style: strike;
-    }
-    EventCard.is-past .card-time {
-        color: $text-disabled;
-    }
+    .det-head  { color: $primary; text-style: bold; margin-bottom: 1; }
+    .det-row   { height: 1; layout: horizontal; }
+    .det-lbl   { width: 12; color: $text-muted; }
+    .det-val   { width: 1fr; color: $text; }
+    .det-notes { color: $text-muted; text-style: italic; margin-top: 1; }
+    .det-foot  { color: $text-muted; text-align: center; margin-top: 1; }
     """
 
-    def __init__(self, event: dict, now_str: str) -> None:
+    def __init__(self, event: dict) -> None:
         super().__init__()
-        self._ev  = event
-        self._now = now_str
+        self._ev = event
 
     def compose(self) -> ComposeResult:
         ev  = self._ev
-        now = self._now
-
         pri_color, pri_label = PRIORITY[ev["priority"]]
-        cat_color            = CATEGORY_COLOR[ev["category"]]
-        cat_icon             = CATEGORY_ICON[ev["category"]]
+        cat_color = CATEGORY_COLOR[ev["category"]]
+        cat_icon  = CATEGORY_ICON[ev["category"]]
+        time_str  = f"{ev['time']} – {ev['end_time']}" if ev.get("end_time") else ev["time"]
 
-        # Time range
-        time_str = ev["time"]
-        if ev.get("end_time"):
-            time_str = f"{ev['time']}–{ev['end_time']}"
-
-        is_past = (ev.get("end_time") or ev["time"]) < now and ev["date"] == date.today()
-        is_now  = (
-            ev["date"] == date.today()
-            and ev["time"] <= now
-            and (ev.get("end_time") or "99:99") >= now
-        )
-
-        self.add_class(f"priority-{ev['priority']}")
-        if is_now:
-            self.add_class("is-now")
-        elif is_past:
-            self.add_class("is-past")
-
-        # ── Header row ──
-        with Horizontal(classes="card-header"):
-            yield Label(time_str, classes="card-time")
-            yield Label(ev["title"], classes="card-title")
-            yield Label(
-                f"[{pri_color}]{pri_label}[/]",
-                classes="card-priority-badge",
-                markup=True,
-            )
-            yield Label(
-                f"[{cat_color}]{cat_icon}[/]",
-                classes="card-cat-badge",
-                markup=True,
-            )
-
-        # ── Meta row (location) ──
-        if ev.get("location"):
-            yield Label(f"  @ {ev['location']}", classes="card-meta")
-
-        # ── Deadline ──
+        dl_str = ""
         if ev.get("deadline"):
-            dl = ev["deadline"]
-            days_left = (dl - date.today()).days
-            if days_left == 0:
-                dl_str = "Due TODAY"
-            elif days_left == 1:
-                dl_str = "Due TOMORROW"
-            elif days_left < 0:
-                dl_str = f"OVERDUE ({abs(days_left)}d ago)"
-            else:
-                dl_str = f"Deadline: {dl.strftime('%b')} {dl.day} ({days_left}d)"
-            yield Label(f"  ⚑ {dl_str}", classes="card-deadline")
+            days = (ev["deadline"] - date.today()).days
+            if   days < 0:  dl_str = f"OVERDUE ({abs(days)}d ago)"
+            elif days == 0: dl_str = "TODAY"
+            elif days == 1: dl_str = "TOMORROW"
+            else:           dl_str = f"{ev['deadline'].strftime('%b')} {ev['deadline'].day} ({days}d left)"
 
-        # ── Notes ──
-        if ev.get("notes"):
-            yield Label(f"  {ev['notes']}", classes="card-notes")
+        with Vertical(id="det-box"):
+            yield Label(f"── {ev['title']} ──", classes="det-head")
+            with Horizontal(classes="det-row"):
+                yield Label("Date",     classes="det-lbl")
+                yield Label(f"{ev['date'].strftime('%A, %B')} {ev['date'].day}", classes="det-val")
+            with Horizontal(classes="det-row"):
+                yield Label("Time",     classes="det-lbl")
+                yield Label(time_str,   classes="det-val")
+            with Horizontal(classes="det-row"):
+                yield Label("Priority", classes="det-lbl")
+                yield Label(f"[{pri_color}]{pri_label}[/]", classes="det-val", markup=True)
+            with Horizontal(classes="det-row"):
+                yield Label("Category", classes="det-lbl")
+                yield Label(f"[{cat_color}]{cat_icon} {ev['category']}[/]", classes="det-val", markup=True)
+            if ev.get("location"):
+                with Horizontal(classes="det-row"):
+                    yield Label("Location", classes="det-lbl")
+                    yield Label(ev["location"], classes="det-val")
+            if dl_str:
+                with Horizontal(classes="det-row"):
+                    yield Label("Deadline", classes="det-lbl")
+                    yield Label(dl_str, classes="det-val")
+            if ev.get("notes"):
+                yield Label(f"  {ev['notes']}", classes="det-notes")
+            yield Label("[ Enter / Esc ]  Close", classes="det-foot")
+
+    def action_dismiss_modal(self) -> None:
+        self.dismiss()
 
 
-# ─── Day Selector Bar ─────────────────────────────────────────────────────────
+# ──────────────────────────────────────────────────────────────────────────────
+# Confirm Modal
+# ──────────────────────────────────────────────────────────────────────────────
+
+class ConfirmModal(ModalScreen):
+    BINDINGS = [
+        ("y,enter", "yes", "Yes"),
+        ("n,escape", "no", "No"),
+    ]
+    DEFAULT_CSS = """
+    ConfirmModal { align: center middle; }
+    #conf-box {
+        width: 52;
+        height: 7;
+        border: solid $error;
+        background: $surface;
+        padding: 1 2;
+        align: center middle;
+        layout: vertical;
+    }
+    #conf-msg  { text-align: center; color: $text; margin-bottom: 1; }
+    #conf-hint { text-align: center; color: $text-muted; }
+    """
+
+    def __init__(self, message: str) -> None:
+        super().__init__()
+        self._msg = message
+
+    def compose(self) -> ComposeResult:
+        with Vertical(id="conf-box"):
+            yield Label(self._msg,                   id="conf-msg")
+            yield Label("[ y / Enter ]  Yes    [ n / Esc ]  No", id="conf-hint")
+
+    def action_yes(self) -> None: self.dismiss(True)
+    def action_no(self)  -> None: self.dismiss(False)
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Add / Edit Form Modal
+# ──────────────────────────────────────────────────────────────────────────────
+
+class EventFormModal(ModalScreen):
+    BINDINGS = [
+        ("escape",  "cancel",  "Cancel"),
+        ("ctrl+s",  "confirm", "Save"),
+    ]
+    DEFAULT_CSS = """
+    EventFormModal { align: center middle; }
+    #form-box {
+        width: 64;
+        height: auto;
+        border: solid $primary;
+        background: $surface;
+        padding: 1 2;
+    }
+    #form-title { color: $primary; text-style: bold; text-align: center; margin-bottom: 1; }
+    .f-row      { height: 3; layout: horizontal; width: 100%; }
+    .f-lbl      { width: 12; content-align: left middle; color: $text-muted; }
+    .f-inp      { width: 1fr; }
+    #form-error { color: $error; height: 1; text-align: center; }
+    #form-hint  { color: $text-muted; text-align: center; }
+    #form-btns  { layout: horizontal; height: 3; width: 100%; margin-top: 1; }
+    #btn-save   { width: 1fr; margin-right: 1; }
+    #btn-cancel { width: 1fr; }
+    """
+
+    def __init__(self, event: dict | None = None, default_date: date | None = None) -> None:
+        super().__init__()
+        self._ev    = event
+        self._ddate = default_date or date.today()
+        self._mode  = "Edit" if event else "Add"
+
+    def compose(self) -> ComposeResult:
+        ev = self._ev or {}
+        with Vertical(id="form-box"):
+            yield Label(f"── {self._mode} Event ──", id="form-title")
+
+            with Horizontal(classes="f-row"):
+                yield Label("Title",    classes="f-lbl")
+                yield Input(value=ev.get("title", ""), placeholder="Event title", id="i-title", classes="f-inp")
+
+            with Horizontal(classes="f-row"):
+                yield Label("Date",     classes="f-lbl")
+                yield Input(
+                    value=ev["date"].isoformat() if ev.get("date") else self._ddate.isoformat(),
+                    placeholder="YYYY-MM-DD", id="i-date", classes="f-inp",
+                )
+
+            with Horizontal(classes="f-row"):
+                yield Label("Time",     classes="f-lbl")
+                yield Input(value=ev.get("time", ""), placeholder="HH:MM", id="i-time", classes="f-inp")
+
+            with Horizontal(classes="f-row"):
+                yield Label("End Time", classes="f-lbl")
+                yield Input(value=ev.get("end_time") or "", placeholder="HH:MM  (optional)", id="i-end", classes="f-inp")
+
+            with Horizontal(classes="f-row"):
+                yield Label("Priority", classes="f-lbl")
+                yield Select(_PRI_OPTS, value=ev.get("priority", "medium"), id="i-priority", classes="f-inp")
+
+            with Horizontal(classes="f-row"):
+                yield Label("Category", classes="f-lbl")
+                yield Select(_CAT_OPTS, value=ev.get("category", "personal"), id="i-category", classes="f-inp")
+
+            with Horizontal(classes="f-row"):
+                yield Label("Deadline", classes="f-lbl")
+                yield Input(
+                    value=ev["deadline"].isoformat() if ev.get("deadline") else "",
+                    placeholder="YYYY-MM-DD  (optional)", id="i-deadline", classes="f-inp",
+                )
+
+            with Horizontal(classes="f-row"):
+                yield Label("Notes",    classes="f-lbl")
+                yield Input(value=ev.get("notes") or "", placeholder="Notes  (optional)", id="i-notes", classes="f-inp")
+
+            yield Label("",                              id="form-error")
+            yield Label("Ctrl+S  Save   Esc  Cancel",   id="form-hint")
+
+            with Horizontal(id="form-btns"):
+                yield Button("[ Save ]",   id="btn-save",   variant="primary")
+                yield Button("[ Cancel ]", id="btn-cancel")
+
+    def action_confirm(self) -> None: self._try_save()
+    def action_cancel(self)  -> None: self.dismiss(None)
+
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        if   event.button.id == "btn-save":   self._try_save()
+        elif event.button.id == "btn-cancel": self.dismiss(None)
+
+    def _try_save(self) -> None:
+        err      = self.query_one("#form-error", Label)
+        title    = self.query_one("#i-title",    Input).value.strip()
+        date_str = self.query_one("#i-date",     Input).value.strip()
+        time_str = self.query_one("#i-time",     Input).value.strip()
+        end_str  = self.query_one("#i-end",      Input).value.strip() or None
+        priority = self.query_one("#i-priority", Select).value
+        category = self.query_one("#i-category", Select).value
+        dl_str   = self.query_one("#i-deadline", Input).value.strip()
+        notes    = self.query_one("#i-notes",    Input).value.strip() or None
+
+        # ── Validate ──
+        if not title:
+            err.update("Title is required."); return
+        try:
+            ev_date = date.fromisoformat(date_str)
+        except ValueError:
+            err.update("Invalid date — use YYYY-MM-DD."); return
+        try:
+            datetime.strptime(time_str, "%H:%M")
+        except ValueError:
+            err.update("Invalid time — use HH:MM."); return
+        if end_str:
+            try:
+                datetime.strptime(end_str, "%H:%M")
+            except ValueError:
+                err.update("Invalid end time — use HH:MM."); return
+
+        # Select.BLANK guard
+        from textual.widgets._select import BLANK
+        if priority is BLANK:
+            err.update("Select a priority."); return
+        if category is BLANK:
+            err.update("Select a category."); return
+
+        deadline = None
+        if dl_str:
+            try:
+                deadline = date.fromisoformat(dl_str)
+            except ValueError:
+                err.update("Invalid deadline — use YYYY-MM-DD."); return
+
+        self.dismiss({
+            "title":    title,
+            "date":     ev_date,
+            "time":     time_str,
+            "end_time": end_str,
+            "priority": priority,
+            "category": category,
+            "deadline": deadline,
+            "notes":    notes,
+            "location": self._ev.get("location") if self._ev else None,
+        })
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Day Navigation Button
+# ──────────────────────────────────────────────────────────────────────────────
 
 class DayButton(Button):
     DEFAULT_CSS = """
     DayButton {
-        min-width: 10;
+        min-width: 9;
         height: 3;
         border: none;
         background: $surface;
         color: $text-muted;
     }
-    DayButton:hover {
-        background: $surface-lighten-1;
-        color: $text;
-    }
-    DayButton.selected {
-        background: $primary 30%;
-        color: $primary;
-        text-style: bold;
-        border-bottom: solid $primary;
-    }
-    DayButton.today {
-        color: $warning;
-    }
-    DayButton.has-critical {
-        color: $error;
-    }
+    DayButton:hover              { background: $surface-lighten-1; color: $text; }
+    DayButton.selected           { background: $primary 18%; color: $primary; text-style: bold; }
+    DayButton.today              { color: $warning; }
+    DayButton.selected.today     { background: $warning 12%; color: $warning; }
     """
 
     def __init__(self, d: date, selected: bool = False) -> None:
-        today     = date.today()
-        label_day = d.strftime("%a")   # Mon, Tue …
-        label_num = str(d.day)         # 1, 2 … (cross-platform)
-        events    = get_events_for_date(d)
-        dot       = f" ({'!' if any(e['priority']=='critical' for e in events) else len(events)})" if events else ""
-        label     = f"{label_day}\n{label_num}{dot}"
-        # super().__init__ MUST come before add_class / reactive access
+        label = f"{d.strftime('%a')}\n{d.day}"
         super().__init__(label, id=f"day-{d.isoformat()}")
         self._date = d
         if selected:
             self.add_class("selected")
-        if d == today:
+        if d == date.today():
             self.add_class("today")
-        if any(e["priority"] == "critical" for e in events):
-            self.add_class("has-critical")
 
     @property
     def day_date(self) -> date:
         return self._date
 
 
-# ─── Main Schedule Widget ─────────────────────────────────────────────────────
+# ──────────────────────────────────────────────────────────────────────────────
+# Main Schedule Widget
+# ──────────────────────────────────────────────────────────────────────────────
 
 class Schedule(Widget):
-    selected_date: reactive[date] = reactive(date.today)
+
+    BINDINGS = [
+        Binding("a",       "add",      "Add",    show=False),
+        Binding("e",       "edit",     "Edit",   show=False),
+        Binding("d",       "delete",   "Delete", show=False),
+        Binding("enter",   "detail",   "Detail", show=False),
+        Binding("left",    "prev_day", "← Day",  show=False),
+        Binding("right",   "next_day", "→ Day",  show=False),
+        Binding("h",       "prev_day", "← Day",  show=False),
+        Binding("l",       "next_day", "→ Day",  show=False),
+        Binding("r",       "reload",   "Reload", show=False),
+    ]
 
     DEFAULT_CSS = """
-    Schedule {
-        layout: vertical;
-        height: 1fr;
-        width: 100%;
-    }
+    Schedule { layout: vertical; height: 1fr; width: 100%; }
 
-    /* ── Day nav bar ── */
     #day-nav {
-        height: 4;
+        height: 3;
         width: 100%;
-        layout: horizontal;
         background: $surface;
         border-bottom: solid $surface-lighten-2;
+        layout: horizontal;
         padding: 0 1;
     }
 
-    /* ── Body: legend + event list ── */
-    #sched-body {
-        layout: horizontal;
-        height: 1fr;
-        width: 100%;
-    }
+    #sched-body { layout: horizontal; height: 1fr; width: 100%; }
 
-    /* ── Left legend / stats ── */
-    #sched-legend {
+    /* ── Sidebar ── */
+    #sched-sidebar {
         width: 22;
         height: 100%;
         border-right: solid $surface-lighten-2;
-        padding: 1 2;
+        padding: 1 1;
+        overflow: hidden hidden;
     }
-    #sched-legend .leg-title {
-        color: $primary;
-        text-style: bold;
-        margin-bottom: 1;
-    }
-    #sched-legend .leg-item {
-        color: $text-muted;
-        height: auto;
-        margin-bottom: 0;
-    }
-    #sched-legend .leg-count {
-        color: $text;
-        text-style: bold;
-    }
-    #sched-legend .leg-sep {
-        color: $surface-lighten-3;
-        margin-top: 1;
-        margin-bottom: 1;
-    }
-    #sched-legend .leg-cat-title {
-        color: $primary;
-        text-style: bold;
-        margin-top: 1;
-        margin-bottom: 1;
-    }
+    .s-head { color: $primary; text-style: bold; }
+    .s-sep  { color: $surface-lighten-3; }
+    .s-item { height: 1; color: $text-muted; }
 
-    /* ── Event scroll area ── */
-    #event-scroll {
-        width: 1fr;
-        height: 100%;
-        padding: 1 2;
-    }
-
-    #no-events {
-        color: $text-muted;
-        text-style: italic;
-        text-align: center;
-        width: 100%;
-        margin-top: 3;
-    }
-    #day-heading {
+    /* ── Main area ── */
+    #sched-main { width: 1fr; height: 100%; layout: vertical; }
+    #tbl-label  {
+        height: 1;
         color: $primary;
         text-style: bold;
-        margin-bottom: 1;
+        padding: 0 1;
+        background: $surface;
+        border-bottom: solid $surface-lighten-2;
+    }
+    #event-table { height: 1fr; width: 100%; }
+    #no-events   { color: $text-muted; text-style: italic; text-align: center; padding: 2 0; }
+
+    /* ── Key hints ── */
+    #key-hints {
+        height: 1;
+        background: $surface;
+        border-top: solid $surface-lighten-2;
+        color: $text-muted;
+        padding: 0 1;
     }
     """
 
+    selected_date: reactive[date] = reactive(date.today)
+
+    def __init__(self) -> None:
+        super().__init__()
+        self._events: list[dict]         = []
+        self._current_events: list[dict] = []
+
+    # ─── Compose ──────────────────────────────────────────────────────────────
+
     def compose(self) -> ComposeResult:
-        # ── Day navigation ──
         with Horizontal(id="day-nav"):
-            for i, d in enumerate(get_week_dates()):
-                yield DayButton(d, selected=(i == 0))
+            pass  # built in on_mount
 
         with Horizontal(id="sched-body"):
-            # ── Left sidebar ──
-            with Vertical(id="sched-legend"):
-                yield Label("Overview", classes="leg-title")
-                yield Label("", id="leg-total",    classes="leg-item")
-                yield Label("", id="leg-critical",  classes="leg-item")
-                yield Label("", id="leg-due",       classes="leg-item")
-                yield Label("────────────────", classes="leg-sep")
-                yield Label("Categories", classes="leg-cat-title")
-                yield Label("", id="leg-class",     classes="leg-item")
-                yield Label("", id="leg-assign",    classes="leg-item")
-                yield Label("", id="leg-work",      classes="leg-item")
-                yield Label("", id="leg-meeting",   classes="leg-item")
-                yield Label("", id="leg-personal",  classes="leg-item")
-                yield Label("────────────────", classes="leg-sep")
-                yield Label("Priority", classes="leg-cat-title")
-                yield Label("[$error]●[/] Critical", classes="leg-item", markup=True)
-                yield Label("[$warning]●[/] High",   classes="leg-item", markup=True)
-                yield Label("[$primary]○[/] Medium", classes="leg-item", markup=True)
-                yield Label("[$success]○[/] Low",    classes="leg-item", markup=True)
+            with Vertical(id="sched-sidebar"):
+                yield Label("OVERVIEW",           classes="s-head")
+                yield Label("──────────────────", classes="s-sep")
+                yield Label("",  id="leg-total",    classes="s-item")
+                yield Label("",  id="leg-critical", classes="s-item")
+                yield Label("",  id="leg-due",      classes="s-item")
+                yield Label("──────────────────", classes="s-sep")
+                yield Label("CATEGORIES",          classes="s-head")
+                yield Label("──────────────────", classes="s-sep")
+                yield Label("",  id="leg-class",    classes="s-item")
+                yield Label("",  id="leg-assign",   classes="s-item")
+                yield Label("",  id="leg-work",     classes="s-item")
+                yield Label("",  id="leg-meeting",  classes="s-item")
+                yield Label("",  id="leg-personal", classes="s-item")
+                yield Label("──────────────────", classes="s-sep")
+                yield Label("PRIORITY",            classes="s-head")
+                yield Label("──────────────────", classes="s-sep")
+                yield Label("[$error]●[/]   CRIT",   classes="s-item", markup=True)
+                yield Label("[$warning]●[/]  HIGH",  classes="s-item", markup=True)
+                yield Label("[$primary]○[/]  MED",   classes="s-item", markup=True)
+                yield Label("[$success]○[/]  LOW",   classes="s-item", markup=True)
 
-            # ── Scrollable event list ──
-            with ScrollableContainer(id="event-scroll"):
-                yield Label("", id="day-heading")
-                yield Label("", id="no-events")
+            with Vertical(id="sched-main"):
+                yield Label("", id="tbl-label")
+                yield DataTable(id="event-table", show_header=True, cursor_type="row", zebra_stripes=True)
+                yield Label("No events. Press [a] to add one.", id="no-events")
+
+        yield Static(
+            " [a]dd  [e]dit  [d]el  [enter] detail  [←→] day  [↑↓] nav  [r]eload",
+            id="key-hints",
+        )
 
     def on_mount(self) -> None:
+        self._events = load_events()
+        # Build day nav
+        nav = self.query_one("#day-nav", Horizontal)
+        for i, d in enumerate(get_week_dates()):
+            nav.mount(DayButton(d, selected=(i == 0)))
+        # Table columns
+        table = self.query_one("#event-table", DataTable)
+        table.add_columns("TIME", "PRI", "CAT", "TITLE", "DEADLINE", "LOCATION")
         self._refresh_events()
+
+    # ─── Public API ───────────────────────────────────────────────────────────
+
+    def go_to_date(self, d: date) -> None:
+        """Called by Dashboard when user clicks an event in the Home ScheduleBox."""
+        self.selected_date = d
+        for btn in self.query(DayButton):
+            btn.remove_class("selected")
+            if btn.day_date == d:
+                btn.add_class("selected")
+        self._refresh_events()
+
+    # ─── Day nav ──────────────────────────────────────────────────────────────
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
         btn = event.button
         if not isinstance(btn, DayButton):
             return
-        # Update selection styling
         for b in self.query(DayButton):
             b.remove_class("selected")
         btn.add_class("selected")
         self.selected_date = btn.day_date
         self._refresh_events()
 
+    def action_prev_day(self) -> None:
+        self.go_to_date(self.selected_date - timedelta(days=1))
+
+    def action_next_day(self) -> None:
+        self.go_to_date(self.selected_date + timedelta(days=1))
+
+    # ─── CRUD ─────────────────────────────────────────────────────────────────
+
+    def action_add(self) -> None:
+        def cb(result: dict | None) -> None:
+            if result is not None:
+                add_event(self._events, result)
+                self._refresh_events()
+        self.app.push_screen(EventFormModal(default_date=self.selected_date), cb)
+
+    def action_edit(self) -> None:
+        ev = self._cursor_event()
+        if ev is None:
+            return
+        def cb(result: dict | None) -> None:
+            if result is not None:
+                update_event(self._events, ev["id"], result)
+                self._refresh_events()
+        self.app.push_screen(EventFormModal(event=ev, default_date=self.selected_date), cb)
+
+    def action_delete(self) -> None:
+        ev = self._cursor_event()
+        if ev is None:
+            return
+        def cb(confirmed: bool) -> None:
+            if confirmed:
+                delete_event(self._events, ev["id"])
+                self._refresh_events()
+        self.app.push_screen(ConfirmModal(f"Delete '{ev['title']}'?"), cb)
+
+    def action_detail(self) -> None:
+        ev = self._cursor_event()
+        if ev is not None:
+            self.app.push_screen(DetailModal(ev))
+
+    def action_reload(self) -> None:
+        self._events = load_events()
+        self._refresh_events()
+
+    # ─── Helpers ──────────────────────────────────────────────────────────────
+
+    def _cursor_event(self) -> dict | None:
+        if not self._current_events:
+            return None
+        idx = self.query_one("#event-table", DataTable).cursor_row
+        if 0 <= idx < len(self._current_events):
+            return self._current_events[idx]
+        return None
+
     def _refresh_events(self) -> None:
-        from datetime import datetime
-        now_str  = datetime.now().strftime("%H:%M")
-        d        = self.selected_date
-        events   = get_events_for_date(d)
-        today    = date.today()
+        d       = self.selected_date
+        events  = get_events_for_date(self._events, d)
+        self._current_events = events
 
-        # ── Heading ──
-        if d == today:
-            heading = f"Today  ·  {d.strftime('%A, %B')} {d.day}"
-        elif d == today + timedelta(days=1):
-            heading = f"Tomorrow  ·  {d.strftime('%A, %B')} {d.day}"
-        else:
-            heading = f"{d.strftime('%A, %B')} {d.day}"
-        self.query_one("#day-heading", Label).update(heading)
+        table  = self.query_one("#event-table", DataTable)
+        no_ev  = self.query_one("#no-events",   Label)
+        lbl    = self.query_one("#tbl-label",   Label)
 
-        # ── Remove old cards ──
-        for card in self.query(EventCard):
-            card.remove()
-        no_ev = self.query_one("#no-events", Label)
+        # Heading
+        today = date.today()
+        prefix = "Today" if d == today else "Tomorrow" if d == today + timedelta(days=1) else ""
+        day_str = f"{d.strftime('%A, %B')} {d.day}"
+        lbl.update(f" {prefix + '  ·  ' if prefix else ''}{day_str}")
+
+        table.clear()
 
         if not events:
-            no_ev.update("No events scheduled for this day.\nEnjoy the downtime. 🎉")
-            return
-        no_ev.update("")
+            table.display = False
+            no_ev.display = True
+        else:
+            table.display = True
+            no_ev.display = False
 
-        scroll = self.query_one("#event-scroll", ScrollableContainer)
+            for ev in events:
+                time_str = f"{ev['time']}─{ev['end_time']}" if ev.get("end_time") else ev["time"]
+                _, pri_label = PRIORITY[ev["priority"]]
+                cat_icon     = CATEGORY_ICON[ev["category"]]
+
+                # Map Textual CSS vars → Rich colors for DataTable
+                pri_rc = _rc(PRIORITY[ev["priority"]][0])
+                cat_rc = _rc(CATEGORY_COLOR[ev["category"]])
+
+                dl_str, dl_rc = "", "dim white"
+                if ev.get("deadline"):
+                    days = (ev["deadline"] - today).days
+                    if   days < 0:  dl_str, dl_rc = "OVERDUE", "red"
+                    elif days == 0: dl_str, dl_rc = "TODAY",   "red"
+                    elif days == 1: dl_str, dl_rc = "TMRW",    "yellow"
+                    else:           dl_str, dl_rc = f"{days}d", "dim white"
+
+                table.add_row(
+                    time_str,
+                    f"[{pri_rc}]{pri_label}[/]",
+                    f"[{cat_rc}]{cat_icon}[/]",
+                    ev["title"],
+                    f"[{dl_rc}]{dl_str}[/]" if dl_str else "",
+                    ev.get("location") or "",
+                    key=str(ev["id"]),
+                )
+
+        self._refresh_sidebar(events, d)
+
+    def _refresh_sidebar(self, events: list[dict], d: date) -> None:
+        by_cat  = {c: 0 for c in CATEGORIES}
+        n_crit  = sum(1 for e in events if e["priority"] == "critical")
+        n_due   = sum(1 for e in events if e.get("deadline") == d)
         for ev in events:
-            scroll.mount(EventCard(ev, now_str))
+            by_cat[ev["category"]] += 1
 
-        # ── Sidebar stats ──
-        by_cat = {k: 0 for k in ["class", "assignment", "work", "meeting", "personal"]}
-        critical = 0
-        due_today = 0
-        for ev in events:
-            by_cat[ev["category"]] = by_cat.get(ev["category"], 0) + 1
-            if ev["priority"] == "critical":
-                critical += 1
-            if ev.get("deadline") == d:
-                due_today += 1
+        def _li(n: int, label: str, color: str = "$text-muted") -> str:
+            val = f"[{color}]{n:>2}[/]" if n else " –"
+            return f"{val}  {label}"
 
-        def _lbl(val: int, label: str, color: str = "$text") -> str:
-            return f"[{color}]{val:>2}[/]  {label}" if val else f" –   {label}"
-
-        self.query_one("#leg-total",   Label).update(_lbl(len(events), "Events"))
-        self.query_one("#leg-critical",Label).update(_lbl(critical,    "Critical", "$error"))
-        self.query_one("#leg-due",     Label).update(_lbl(due_today,   "Due today", "$warning"))
-        self.query_one("#leg-class",   Label).update(_lbl(by_cat["class"],      "[C] Classes"))
-        self.query_one("#leg-assign",  Label).update(_lbl(by_cat["assignment"], "[A] Assignments"))
-        self.query_one("#leg-work",    Label).update(_lbl(by_cat["work"],       "[W] Work"))
-        self.query_one("#leg-meeting", Label).update(_lbl(by_cat["meeting"],    "[M] Meetings"))
-        self.query_one("#leg-personal",Label).update(_lbl(by_cat["personal"],   "[P] Personal"))
+        self.query_one("#leg-total",    Label).update(_li(len(events), "events"))
+        self.query_one("#leg-critical", Label).update(_li(n_crit, "critical",  "$error"))
+        self.query_one("#leg-due",      Label).update(_li(n_due,  "due today", "$warning"))
+        self.query_one("#leg-class",    Label).update(_li(by_cat["class"],      "[C] class"))
+        self.query_one("#leg-assign",   Label).update(_li(by_cat["assignment"], "[A] assign"))
+        self.query_one("#leg-work",     Label).update(_li(by_cat["work"],       "[W] work"))
+        self.query_one("#leg-meeting",  Label).update(_li(by_cat["meeting"],    "[M] meeting"))
+        self.query_one("#leg-personal", Label).update(_li(by_cat["personal"],   "[P] personal"))

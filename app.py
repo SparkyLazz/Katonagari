@@ -1,7 +1,6 @@
 from textual.app import App, ComposeResult
 from textual.widgets import Footer
 from screens.dashboard import Dashboard
-from widgets.header import Header
 
 
 class Katonagari(App):
