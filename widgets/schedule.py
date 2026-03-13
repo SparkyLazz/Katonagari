@@ -20,8 +20,8 @@ from textual.widget import Widget
 from textual.widgets import Button, DataTable, Input, Label, Rule, Select, Static
 
 from databases.scheduleData import (
-    CATEGORIES, CATEGORY_COLOR, CATEGORY_ICON, PRIORITIES, PRIORITY,
-    add_event, delete_event, get_events_for_date, get_week_dates,
+    CATEGORIES, CATEGORY_COLOR, CATEGORY_ICON,PRIORITY,
+    add_event, delete_event, get_events_for_date,
     load_events, update_event,
 )
 
@@ -401,11 +401,6 @@ class EventFormModal(ModalScreen):
 # ══════════════════════════════════════════════════════════════════════════════
 
 class DayTab(Button):
-    """
-    width: 1fr — all 7 tabs share the strip width equally,
-    so the nav bar never overflows regardless of terminal width.
-    """
-
     DEFAULT_CSS = """
     DayTab {
         width: 1fr;
@@ -452,6 +447,42 @@ class DayTab(Button):
 
 
 # ══════════════════════════════════════════════════════════════════════════════
+# AllTab  — special "All Events" tab in the nav strip
+# ══════════════════════════════════════════════════════════════════════════════
+
+class AllTab(Button):
+    """Fixed-width 'All' tab that shows every event across all dates."""
+
+    DEFAULT_CSS = """
+    AllTab {
+        width: 7;
+        height: 3;
+        background: transparent;
+        border: none;
+        color: $text-muted;
+        text-style: none;
+        padding: 0;
+        min-width: 5;
+    }
+    AllTab:hover { background: $surface 30%; color: $text; }
+
+    AllTab.selected {
+        background: $background;
+        border-top: tall $accent 60%;
+        border-left: tall $accent 30%;
+        border-right: tall $accent 30%;
+        color: $accent;
+        text-style: bold;
+    }
+    """
+
+    def __init__(self, selected: bool = False) -> None:
+        super().__init__("All ✦", id="tab-all")
+        if selected:
+            self.add_class("selected")
+
+
+# ══════════════════════════════════════════════════════════════════════════════
 # SidebarBox  — rounded-border section panel
 # ══════════════════════════════════════════════════════════════════════════════
 
@@ -485,9 +516,8 @@ class TablePanel(Widget):
         border: round $surface-lighten-2;
         background: transparent;
         layout: vertical;
-        padding: 0 1;          /* 1-cell gap between border and content */
+        padding: 0 1;
         overflow: hidden hidden;
-
     }
     """
 
@@ -540,7 +570,6 @@ class Schedule(Widget):
         border-right: solid $surface-lighten-1;
         margin-right: 1;
     }
-    /* DayTabs live here — each gets 1fr of the remaining nav width */
     #tab-strip {
         height: 3;
         layout: horizontal;
@@ -607,7 +636,7 @@ class Schedule(Widget):
         height: 1fr;
         width: 100%;
         background: transparent;
-        margin: 1 0;           /* breathing room above and below the rows */
+        margin: 1 0;
     }
     #no-events {
         color: $text-muted;
@@ -616,7 +645,7 @@ class Schedule(Widget):
         padding: 2 0;
     }
 
-    /* ── Footer — single Static, clips at narrow widths ── */
+    /* ── Footer ── */
     #key-hints {
         height: 1;
         width: 100%;
@@ -629,24 +658,55 @@ class Schedule(Widget):
     """
 
     selected_date: reactive[date] = reactive(date.today)
+    _all_mode: reactive[bool]     = reactive(False)
 
     def __init__(self) -> None:
         super().__init__()
         self._events: list[dict]         = []
         self._current_events: list[dict] = []
+        # Track which Monday starts the currently displayed 7-tab week
+        self._week_start: date = self._monday_of(date.today())
+
+    # ─── Helpers ──────────────────────────────────────────────────────────────
+
+    @staticmethod
+    def _monday_of(d: date) -> date:
+        """Return the Monday of the ISO week that contains *d*."""
+        return d - timedelta(days=d.weekday())
+
+    def _week_dates(self, week_start: date | None = None) -> list[date]:
+        """Return the 7 dates for the displayed week."""
+        ws = week_start if week_start is not None else self._week_start
+        return [ws + timedelta(days=i) for i in range(7)]
+
+    def _date_in_current_tabs(self, d: date) -> bool:
+        return d in self._week_dates()
+
+    # ─── Tab strip management ─────────────────────────────────────────────────
+
+    def _rebuild_tabs(self, week_start: date, selected: date, all_selected: bool = False) -> None:
+        """Tear down all tabs and remount a fresh AllTab + 7-day week."""
+        self._week_start = week_start
+        strip = self.query_one("#tab-strip", Horizontal)
+        # Remove existing tabs
+        for tab in self.query(DayTab):
+            tab.remove()
+        for tab in self.query(AllTab):
+            tab.remove()
+        # Mount AllTab first, then the 7-day tabs
+        strip.mount(AllTab(selected=all_selected))
+        for d in self._week_dates(week_start):
+            strip.mount(DayTab(d, selected=(not all_selected and d == selected)))
 
     # ─── Compose ──────────────────────────────────────────────────────────────
     def compose(self) -> ComposeResult:
 
-        # ── Tab nav ──────────────────────────────────────────────────────────
         with Horizontal(id="tab-nav"):
             yield Label("◆ SCHEDULE", id="nav-label")
-            yield Horizontal(id="tab-strip")   # DayTabs mounted in on_mount
+            yield Horizontal(id="tab-strip")
 
-        # ── Body ─────────────────────────────────────────────────────────────
         with Horizontal(id="sched-body"):
 
-            # Sidebar
             with Vertical(id="sched-sidebar"):
                 with SidebarBox("Overview"):
                     with Horizontal(classes="sb-row"):
@@ -682,7 +742,6 @@ class Schedule(Widget):
                     yield Label("[$primary]○[/] Medium",  classes="dot-med",  markup=True)
                     yield Label("[$success]○[/] Low",     classes="dot-low",  markup=True)
 
-            # Table panel
             with TablePanel():
                 with Horizontal(id="tbl-titlebar"):
                     yield Label("", id="tbl-label")
@@ -698,7 +757,6 @@ class Schedule(Widget):
                     id="no-events",
                 )
 
-        # ── Footer ───────────────────────────────────────────────────────────
         yield Static(
             " [a] Add │ [e] Edit │ [d] Del │ [↵] Detail │ [←→] Day │ [↑↓] Nav │ [h/l] Vim │ [r] Reload",
             id="key-hints",
@@ -707,35 +765,52 @@ class Schedule(Widget):
     def on_mount(self) -> None:
         self._events = load_events()
 
-        # Mount DayTabs into the dedicated strip (each gets 1fr width)
         strip = self.query_one("#tab-strip", Horizontal)
-        for i, d in enumerate(get_week_dates()):
+        strip.mount(AllTab(selected=False))
+        for i, d in enumerate(self._week_dates()):
             strip.mount(DayTab(d, selected=(i == 0)))
 
-        # Table columns
         table = self.query_one("#event-table", DataTable)
         table.add_columns("TIME", "PRI", "CAT", "TITLE", "DEADLINE", "LOCATION")
 
         self._refresh_events()
 
     # ─── Public API ───────────────────────────────────────────────────────────
+
     def go_to_date(self, d: date) -> None:
-        """Jump to a date — called from Dashboard Home tab."""
+        """Jump to any date — rebuilds the week strip if needed."""
+        self._all_mode = False
+        if not self._date_in_current_tabs(d):
+            self._rebuild_tabs(week_start=self._monday_of(d), selected=d)
+        else:
+            for tab in self.query(AllTab):
+                tab.remove_class("selected")
+            for tab in self.query(DayTab):
+                tab.remove_class("selected")
+                if tab.day_date == d:
+                    tab.add_class("selected")
         self.selected_date = d
-        for tab in self.query(DayTab):
-            tab.remove_class("selected")
-            if tab.day_date == d:
-                tab.add_class("selected")
         self._refresh_events()
 
     # ─── Tab / day nav ────────────────────────────────────────────────────────
+
     def on_button_pressed(self, event: Button.Pressed) -> None:
         btn = event.button
+        if isinstance(btn, AllTab):
+            for t in self.query(DayTab):
+                t.remove_class("selected")
+            btn.add_class("selected")
+            self._all_mode = True
+            self._refresh_events()
+            return
         if not isinstance(btn, DayTab):
             return
+        for t in self.query(AllTab):
+            t.remove_class("selected")
         for t in self.query(DayTab):
             t.remove_class("selected")
         btn.add_class("selected")
+        self._all_mode = False
         self.selected_date = btn.day_date
         self._refresh_events()
 
@@ -746,12 +821,14 @@ class Schedule(Widget):
         self.go_to_date(self.selected_date + timedelta(days=1))
 
     # ─── CRUD ─────────────────────────────────────────────────────────────────
+
     def action_add(self) -> None:
+        default = self.selected_date if not self._all_mode else date.today()
         def cb(result: dict | None) -> None:
             if result is not None:
                 add_event(self._events, result)
-                self._refresh_events()
-        self.app.push_screen(EventFormModal(default_date=self.selected_date), cb)
+                self.go_to_date(result["date"])
+        self.app.push_screen(EventFormModal(default_date=default), cb)
 
     def action_edit(self) -> None:
         ev = self._cursor_event()
@@ -760,7 +837,7 @@ class Schedule(Widget):
         def cb(result: dict | None) -> None:
             if result is not None:
                 update_event(self._events, ev["id"], result)
-                self._refresh_events()
+                self.go_to_date(result["date"])
         self.app.push_screen(EventFormModal(event=ev, default_date=self.selected_date), cb)
 
     def action_delete(self) -> None:
@@ -783,6 +860,7 @@ class Schedule(Widget):
         self._refresh_events()
 
     # ─── Internal helpers ─────────────────────────────────────────────────────
+
     def _cursor_event(self) -> dict | None:
         if not self._current_events:
             return None
@@ -792,8 +870,12 @@ class Schedule(Widget):
         return None
 
     def _refresh_events(self) -> None:
-        d      = self.selected_date
-        events = get_events_for_date(self._events, d)
+        # ── Fetch events ──────────────────────────────────────────────────────
+        if self._all_mode:
+            events = sorted(self._events, key=lambda e: (e["date"], e["time"]))
+        else:
+            d      = self.selected_date
+            events = get_events_for_date(self._events, d)
         self._current_events = events
 
         table = self.query_one("#event-table", DataTable)
@@ -801,32 +883,43 @@ class Schedule(Widget):
         lbl   = self.query_one("#tbl-label",   Label)
         count = self.query_one("#tbl-count",   Label)
 
-        today = date.today()
-        if   d == today:                prefix = "Today"
-        elif d == today + timedelta(1): prefix = "Tomorrow"
-        elif d == today - timedelta(1): prefix = "Yesterday"
-        else:                           prefix = ""
+        # ── Title bar ─────────────────────────────────────────────────────────
+        if self._all_mode:
+            lbl.update(" ✦ All Events")
+        else:
+            d     = self.selected_date
+            today = date.today()
+            if   d == today:                prefix = "Today"
+            elif d == today + timedelta(1): prefix = "Tomorrow"
+            elif d == today - timedelta(1): prefix = "Yesterday"
+            else:                           prefix = ""
+            weekday = d.strftime("%A")
+            mon_day = f"{d.strftime('%B')} {d.day}"
+            sep     = "  ·  " if prefix else ""
+            lbl.update(f" {prefix}{sep}{weekday}, {mon_day}")
 
-        weekday = d.strftime("%A")
-        mon_day = f"{d.strftime('%B')} {d.day}"
-        sep     = "  ·  " if prefix else ""
-        lbl.update(f" {prefix}{sep}{weekday}, {mon_day}")
         count.update(
             f"{len(events)} event{'s' if len(events) != 1 else ''}" if events else ""
         )
 
-        table.clear()
+        # ── Rebuild columns based on mode ─────────────────────────────────────
+        table.clear(columns=True)
+        if self._all_mode:
+            table.add_columns("DATE", "TIME", "PRI", "CAT", "TITLE", "DEADLINE", "LOCATION")
+        else:
+            table.add_columns("TIME", "PRI", "CAT", "TITLE", "DEADLINE", "LOCATION")
 
         if not events:
             table.display = False
             no_ev.display = True
-            self._refresh_sidebar([], d)
+            self._refresh_sidebar([], self.selected_date)
             return
 
         table.display = True
         no_ev.display = False
 
-        now_str = datetime.now().strftime("%H:%M")
+        today     = date.today()
+        now_str   = datetime.now().strftime("%H:%M")
 
         for ev in events:
             time_str = f"{ev['time']}─{ev['end_time']}" if ev.get("end_time") else ev["time"]
@@ -855,22 +948,35 @@ class Schedule(Widget):
                 time_cell  = f"[dim]{time_str}[/]"
                 title_cell = ev["title"]
 
-            table.add_row(
-                time_cell,
+            # Date cell — colored by proximity in All mode
+            ev_date    = ev["date"]
+            days_away  = (ev_date - today).days
+            if   ev_date == today:    date_cell = f"[yellow bold]{ev_date.strftime('%b %d')}[/]"
+            elif days_away < 0:       date_cell = f"[dim]{ev_date.strftime('%b %d')}[/]"
+            elif days_away <= 3:      date_cell = f"[cyan]{ev_date.strftime('%b %d')}[/]"
+            else:                     date_cell = f"[dim white]{ev_date.strftime('%b %d')}[/]"
+
+            row_cells = (
+                [date_cell, time_cell] if self._all_mode else [time_cell]
+            ) + [
                 f"[{pri_rc}]{pri_label}[/]",
                 f"[{cat_rc}]{cat_icon}[/]",
                 title_cell,
                 f"[{dl_rc}]{dl_str}[/]" if dl_str else "",
                 f"[dim]{ev.get('location') or ''}[/]",
-                key=str(ev["id"]),
-            )
+            ]
 
-        self._refresh_sidebar(events, d)
+            table.add_row(*row_cells, key=str(ev["id"]))
+
+        sidebar_date = self.selected_date if not self._all_mode else today
+        self._refresh_sidebar(events, sidebar_date)
 
     def _refresh_sidebar(self, events: list[dict], d: date) -> None:
         by_cat = {c: 0 for c in CATEGORIES}
         n_crit = sum(1 for e in events if e["priority"] == "critical")
-        n_due  = sum(1 for e in events if e.get("deadline") == d)
+        # In all-mode count events with deadline today; in day-mode count events due on d
+        due_date = date.today() if self._all_mode else d
+        n_due  = sum(1 for e in events if e.get("deadline") == due_date)
         for ev in events:
             by_cat[ev["category"]] += 1
 
