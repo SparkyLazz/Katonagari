@@ -1,21 +1,3 @@
-"""
-finance.py — Finance tab for Katonagari.
-
-Layout:
-  Finance (vertical, 1fr)
-  ├── #fin-body (horizontal, 1fr)
-  │   ├── FinanceSidebar   (width:28)
-  │   └── TabbedContent #fin-tabs (1fr)
-  │       ├── TabPane "Transactions"
-  │       │   └── #tx-pane (vertical, 1fr)
-  │       │       ├── #filter-bar  (height:3)
-  │       │       ├── #info-bar    (height:1)
-  │       │       └── DataTable / #no-txs (1fr)
-  │       └── TabPane "Analysis"
-  │           └── ScrollableContainer
-  │               └── AnalysisPanel
-  └── #key-hints (height:1)
-"""
 from __future__ import annotations
 
 from datetime import date
@@ -473,22 +455,14 @@ class AnalysisPanel(Widget):
 
     /* ── period selector ─────────────────────────────── */
     #an-period-row {
-        height: 1;
+        height: 3;
         layout: horizontal;
         margin-bottom: 1;
     }
     .an-period-lbl {
-        width: auto; height: 1;
+        width: auto; height: 3;
         color: $text-muted; content-align: left middle; padding: 0 1;
     }
-    .an-period-btn {
-        width: auto; height: 1;
-        background: transparent; border: none;
-        color: $text-muted; padding: 0 1; margin-right: 1;
-    }
-    .an-period-btn.active { color: $primary; text-style: bold underline; border: none; }
-    .an-period-btn:hover  { color: $text; border: none; }
-    .an-period-btn:focus  { border: none; }
 
     /* ── chart area ──────────────────────────────────── */
     #an-chart { width: 100%; height: auto; layout: vertical; }
@@ -510,7 +484,7 @@ class AnalysisPanel(Widget):
     .an-amt { width: 12; text-align: right; content-align: right middle; }
     .an-net { height: 1; color: $text-muted; }
 
-    /* progress bars — colour the filled portion per type */
+    /* progress bars */
     .an-inc-bar { width: 1fr; margin-bottom: 1; }
     .an-exp-bar { width: 1fr; margin-bottom: 1; }
     .an-inc-bar > .bar--bar { color: $success; }
@@ -538,7 +512,7 @@ class AnalysisPanel(Widget):
             yield Label("Period:", classes="an-period-lbl")
             for lbl, n in self._PERIODS:
                 yield Button(lbl, id=f"an-p-{n}",
-                             classes="an-period-btn" + (" active" if n == 6 else ""))
+                             variant="primary" if n == 6 else "default")
         yield Vertical(id="an-chart")
         with Vertical(id="an-sum"):
             yield Label("Summary", classes="an-sum-head")
@@ -563,7 +537,9 @@ class AnalysisPanel(Widget):
             if ev.button.id == f"an-p-{n}":
                 self._period = n
                 for _, m in self._PERIODS:
-                    self.query_one(f"#an-p-{m}", Button).set_class(m == n, "active")
+                    self.query_one(f"#an-p-{m}", Button).variant = (
+                        "primary" if m == n else "default"
+                    )
                 ev.stop()
                 self.rebuild(self._last_txs)
                 return
@@ -589,7 +565,6 @@ class AnalysisPanel(Widget):
             nc     = "green" if net >= 0 else "red"
             ns     = ("+" if net >= 0 else "") + fmt_rp_short(net)
 
-            # card container — border changes colour for current month
             card_cls = "an-card an-card-now" if is_now else "an-card"
             card = Vertical(classes=card_cls)
             if is_now:
@@ -598,7 +573,6 @@ class AnalysisPanel(Widget):
                 card.border_title = name
             chart.mount(card)
 
-            # INC header row
             inc_hdr = Horizontal(classes="an-row")
             card.mount(inc_hdr)
             inc_hdr.mount(Label("INC", classes="an-lbl"))
@@ -606,12 +580,10 @@ class AnalysisPanel(Widget):
                 f"[green]{fmt_rp_short(m['income'])}[/]",
                 markup=True, classes="an-amt"))
 
-            # INC progress bar
             card.mount(ProgressBar(
                 total=max_val, id=f"an-inc-{i}",
                 show_eta=False, classes="an-inc-bar"))
 
-            # EXP header row
             exp_hdr = Horizontal(classes="an-row")
             card.mount(exp_hdr)
             exp_hdr.mount(Label("EXP", classes="an-lbl"))
@@ -619,22 +591,18 @@ class AnalysisPanel(Widget):
                 f"[red]{fmt_rp_short(m['expense'])}[/]",
                 markup=True, classes="an-amt"))
 
-            # EXP progress bar
             card.mount(ProgressBar(
                 total=max_val, id=f"an-exp-{i}",
                 show_eta=False, classes="an-exp-bar"))
 
-            # net line
             card.mount(Label(
                 f"[{nc}]{ns}[/] net",
                 markup=True, classes="an-net"))
 
-        # Set progress values after all widgets are mounted
         for i, m in enumerate(months):
             self.query_one(f"#an-inc-{i}", ProgressBar).progress = m["income"]
             self.query_one(f"#an-exp-{i}", ProgressBar).progress = m["expense"]
 
-        # Update summary
         total_inc = sum(m["income"]  for m in months)
         total_exp = sum(m["expense"] for m in months)
         total_net = total_inc - total_exp
@@ -672,7 +640,6 @@ class Finance(Widget):
         background: $background;
     }
 
-    /* body row ─────────────────────────────────────── */
     #fin-body {
         layout: horizontal;
         height: 1fr;
@@ -680,7 +647,6 @@ class Finance(Widget):
         padding: 1 1 0 1;
     }
 
-    /* tabbed area ──────────────────────────────────── */
     #fin-tabs {
         width: 1fr;
         height: 100%;
@@ -690,7 +656,6 @@ class Finance(Widget):
         height: 1fr;
     }
 
-    /* transactions pane ────────────────────────────── */
     #tx-pane {
         layout: vertical;
         height: 1fr;
@@ -698,7 +663,6 @@ class Finance(Widget):
         padding: 1 1 0 1;
     }
 
-    /* round border box — mirrors the analysis ScrollableContainer */
     #tx-box {
         layout: vertical;
         height: 1fr;
@@ -708,35 +672,12 @@ class Finance(Widget):
         overflow: hidden hidden;
     }
 
-    /* filter bar */
     #filter-bar {
         height: 3;
         layout: horizontal;
         margin-bottom: 1;
     }
-    .flt-btn {
-        width: auto;
-        min-width: 12;
-        height: 3;
-        background: transparent;
-        border: round $surface-lighten-2;
-        color: $text-muted;
-        padding: 0 2;
-    }
-    .flt-btn:hover {
-        color: $text;
-        border: round $surface-lighten-3;
-    }
-    .flt-btn:focus {
-        border: round $surface-lighten-2;
-    }
-    .flt-btn.active {
-        color: $primary;
-        text-style: bold;
-        border: round $primary;
-    }
 
-    /* info row */
     #info-bar {
         height: 1;
         layout: horizontal;
@@ -745,11 +686,13 @@ class Finance(Widget):
     #lbl-title { width: 1fr; color: $primary; text-style: bold; }
     #lbl-count { color: $text-muted; text-style: italic; }
 
-    /* table */
     #tx-table {
         height: 1fr;
         width: 100%;
         background: transparent;
+    }
+    #tx-table .datatable--header {
+        padding: 10 10;
     }
     #no-txs {
         height: 1fr;
@@ -759,13 +702,11 @@ class Finance(Widget):
         content-align: center middle;
     }
 
-    /* analysis pane ────────────────────────────────── */
     #an-scroll {
         height: 1fr;
         width: 100%;
     }
 
-    /* footer ───────────────────────────────────────── */
     #key-hints {
         height: 1;
         width: 100%;
@@ -797,7 +738,7 @@ class Finance(Widget):
                                     yield Button(
                                         _FILTER_NAMES[key],
                                         id=f"flt-{key}",
-                                        classes="flt-btn" + (" active" if key == "all" else ""),
+                                        variant="primary" if key == "all" else "default",
                                     )
                             with Horizontal(id="info-bar"):
                                 yield Label("", id="lbl-title")
@@ -845,7 +786,9 @@ class Finance(Widget):
             if key in _FILTER_KEYS:
                 self._filter = key
                 for k in _FILTER_KEYS:
-                    self.query_one(f"#flt-{k}", Button).set_class(k == key, "active")
+                    self.query_one(f"#flt-{k}", Button).variant = (
+                        "primary" if k == key else "default"
+                    )
                 self._rebuild_table()
             ev.stop()
 
@@ -935,16 +878,13 @@ class Finance(Widget):
             kind, d = tx["type"], tx["date"]
             ago = (today - d).days
 
-            # date
             if   d == today: date_c = "[yellow bold]Today[/]"
             elif ago == 1:   date_c = "[dim white]Yesterday[/]"
             elif ago <= 7:   date_c = f"[dim white]{d.strftime('%a %d')}[/]"
             else:            date_c = f"[dim]{d.strftime('%b %d')}[/]"
 
-            # type
             type_c = _TYPE_PILL.get(kind, kind)
 
-            # account
             acc = tx["account"]
             ac  = _ACC_RICH.get(acc, "white")
             ai  = ACCOUNT_ICON.get(acc, "[?]")
@@ -956,7 +896,6 @@ class Finance(Widget):
             else:
                 acc_c = f"[{ac}]● {ai} {acc}[/]"
 
-            # category
             if kind == "transfer":
                 cat_c = "[dim]──[/]"
             else:
@@ -965,7 +904,6 @@ class Finance(Widget):
                 ci    = CATEGORY_ICON.get(cat, "[?]")
                 cat_c = f"[{cc}]{ci} {cat}[/]"
 
-            # amount
             amt = tx["amount"]
             if   kind == "expense":  amt_c = f"[red bold]-{fmt_rp(amt)}[/]"
             elif kind == "income":   amt_c = f"[green bold]+{fmt_rp(amt)}[/]"
