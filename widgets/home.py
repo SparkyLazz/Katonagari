@@ -53,22 +53,17 @@ class SwitchToSchedule(Message):
 # ══════════════════════════════════════════════════════════════════════════════
 
 class Panel(Widget):
-    """Base class: round border, transparent background, consistent padding."""
+    """Base class: round borders, centered titles."""
     DEFAULT_CSS = """
     Panel {
-        border: round $surface-lighten-2;
-        background: $surface 20%;
+        background: $surface;
         padding: 0 1;
         overflow: hidden hidden;
-    }
-    Panel .panel-title {
-        color: $primary;
-        text-style: bold;
+        border: round $primary;
+        border-title-align: left;
+        border-title-color: $primary;
+        border-title-style: bold;
         margin-bottom: 1;
-    }
-    Panel .panel-rule {
-        color: $surface-lighten-2;
-        height: 1;
     }
     Panel .muted { color: $text-muted; }
     Panel .dim   { color: $text-disabled; }
@@ -90,7 +85,7 @@ class StatisticBox(Panel):
 
     DEFAULT_CSS = Panel.DEFAULT_CSS + """
     StatisticBox {
-        width: 26;
+        width: 100%;
         height: 1fr;
     }
     StatisticBox Label { width: 100%; }
@@ -108,28 +103,26 @@ class StatisticBox(Panel):
     """
 
     def compose(self) -> ComposeResult:
-        self.border_title = " System "
-
-        yield Label("── Host ──────────────", classes="panel-title")
+        self.border_title = "🤺 SYSTEM MONITORING"
         yield Label("", id="lbl-host",   classes="info")
         yield Label("", id="lbl-os",     classes="info")
         yield Label("", id="lbl-uptime", classes="muted")
 
         yield Label("")
-        yield Label("── Resources ─────────", classes="panel-title")
+        yield Label("RESOURCES", classes="muted")
 
-        yield Label("CPU   0%", id="cpu-lbl")
+        yield Label("CPU", id="cpu-lbl")
         yield ProgressBar(total=100, id="cpu-bar", show_eta=False)
 
-        yield Label("RAM   0%", id="ram-lbl")
+        yield Label("RAM", id="ram-lbl")
         yield ProgressBar(total=100, id="ram-bar", show_eta=False)
 
-        yield Label("SWP   0%", id="swp-lbl")
+        yield Label("SWP", id="swp-lbl")
         yield ProgressBar(total=100, id="swp-bar", show_eta=False)
 
         yield Label("")
-        yield Label("── Disk ──────────────", classes="panel-title")
-        yield Label("DSK   0%", id="dsk-lbl")
+        yield Label("DISK", classes="muted")
+        yield Label("DSK", id="dsk-lbl")
         yield ProgressBar(total=100, id="dsk-bar", show_eta=False)
         yield Label("", id="dsk-detail", classes="muted")
 
@@ -234,9 +227,9 @@ class ScheduleBox(Panel):
     """
 
     def compose(self) -> ComposeResult:
-        today_str = f"{date.today().strftime('%A, %B')} {date.today().day}"
-        self.border_title = " Today's Schedule "
-        yield Label(f"── {today_str} ──", classes="panel-title")
+        self.border_title = "📅 TODAY'S SCHEDULE"
+        today_str = f"{date.today().strftime('%A, %B %d')}"
+        yield Label(today_str, classes="muted", id="sb-date")
         yield Label("Loading…", id="sb-placeholder")
         yield Label("",         id="sb-summary")
         yield Label("↑ Click any event to open Schedule tab", id="sb-hint")
@@ -308,8 +301,7 @@ class WeekOverview(Panel):
     _BAR_CHARS = " ▏▎▍▌▋▊▉█"
 
     def compose(self) -> ComposeResult:
-        self.border_title = " Week Overview "
-        yield Label("── Events per day ────", classes="panel-title")
+        self.border_title = "📊 WEEK OVERVIEW"
         today = date.today()
         for i in range(7):
             d = today + timedelta(days=i)
@@ -368,8 +360,7 @@ class DeadlineBox(Panel):
     """
 
     def compose(self) -> ComposeResult:
-        self.border_title = " Upcoming Deadlines "
-        yield Label("── Due soonest ────────", classes="panel-title")
+        self.border_title = "⏰ UPCOMING DEADLINES"
         yield Label("Loading…", id="dl-placeholder", classes="muted")
         # Reserve 8 slots
         for i in range(8):
@@ -450,8 +441,7 @@ class QuickStatsBox(Panel):
     _MAX_BAR = 8
 
     def compose(self) -> ComposeResult:
-        self.border_title = " Quick Stats "
-        yield Label("── By category ───────", classes="panel-title")
+        self.border_title = "📈 QUICK STATS"
         for cat in CATEGORIES:
             icon  = CATEGORY_ICON[cat]
             color = CATEGORY_COLOR[cat]
@@ -461,7 +451,7 @@ class QuickStatsBox(Panel):
                 yield Label("", id=f"qs-cval-{cat}", classes="qs-val")
 
         yield Label("")
-        yield Label("── By priority ───────", classes="panel-title")
+        yield Label("BY PRIORITY", classes="muted")
         for pri, (color, label) in PRIORITY.items():
             with Horizontal(classes="qs-row"):
                 yield Label(f"[{color}]{label}[/]", markup=True, classes="qs-lbl")
@@ -469,7 +459,7 @@ class QuickStatsBox(Panel):
                 yield Label("", id=f"qs-pval-{pri}", classes="qs-val")
 
         yield Label("")
-        yield Label("── Total ─────────────", classes="panel-title")
+        yield Label("TOTAL", classes="muted")
         with Horizontal(classes="qs-row"):
             yield Label("All events", classes="qs-lbl")
             yield Label("", id="qs-total", classes="qs-val")
@@ -528,15 +518,13 @@ class Home(Widget):
         layout: horizontal;
         height: 1fr;
         width: 100%;
-        padding: 1;
         background: $background;
     }
 
     /* left column — fixed width, full height */
     #col-left {
-        width: 26;
+        width: 32;
         height: 1fr;
-        margin-right: 1;
     }
 
     /* middle and right columns share remaining space equally */
@@ -545,12 +533,11 @@ class Home(Widget):
         height: 1fr;
         layout: vertical;
     }
-    #col-mid  { margin-right: 1; }
 
-    /* panels inside columns get equal vertical space */
-    #col-mid  Panel, #col-right Panel { margin-bottom: 1; }
-    #col-mid  Panel:last-of-type,
-    #col-right Panel:last-of-type     { margin-bottom: 0; }
+    /* Gaps between columns handled by layout or margins */
+    #col-left, #col-mid {
+        margin-right: 2;
+    }
     """
 
     def compose(self) -> ComposeResult:

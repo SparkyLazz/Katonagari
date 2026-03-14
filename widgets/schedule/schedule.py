@@ -46,8 +46,7 @@ class Schedule(Widget):
         height: 3;
         width: 100%;
         layout: horizontal;
-        background: $background;
-        border-bottom: solid $surface-lighten-1;
+        background: $surface 20%;
         padding: 0 1;
         align: left bottom;
         overflow: hidden hidden;
@@ -58,9 +57,8 @@ class Schedule(Widget):
         content-align: left middle;
         color: $primary;
         text-style: bold;
-        padding: 0 1;
-        border-right: solid $surface-lighten-1;
-        margin-right: 1;
+        padding: 0 2;
+        margin-right: 2;
     }
     #tab-strip {
         height: 3;
@@ -75,7 +73,7 @@ class Schedule(Widget):
         layout: horizontal;
         height: 1fr;
         width: 100%;
-        padding: 1;
+        padding: 0;
         overflow: hidden hidden;
     }
 
@@ -103,32 +101,14 @@ class Schedule(Widget):
     .dot-med  { color: $primary; height: 1; overflow: hidden hidden; }
     .dot-low  { color: $success; height: 1; overflow: hidden hidden; }
 
-    /* ── TablePanel interior ── */
-    #tbl-titlebar {
-        height: 1;
-        layout: horizontal;
-        background: $surface 25%;
-        border-bottom: solid $surface-lighten-1;
-        padding: 0 1;
-        overflow: hidden hidden;
-    }
-    #tbl-label {
-        width: 1fr;
-        color: $primary;
-        text-style: bold;
-        overflow: hidden hidden;
-    }
-    #tbl-count {
-        width: auto;
-        color: $text-muted;
-        text-style: italic;
-    }
+    #tbl-titlebar { display: none; }
+    #tbl-label    { display: none; }
+    #tbl-count    { display: none; }
 
     #event-table {
         height: 1fr;
         width: 100%;
         background: transparent;
-        margin: 1 0;
     }
     #no-events {
         color: $text-muted;
@@ -152,8 +132,8 @@ class Schedule(Widget):
     selected_date: reactive[date] = reactive(date.today)
     _all_mode: reactive[bool]     = reactive(False)
 
-    def __init__(self) -> None:
-        super().__init__()
+    def __init__(self, **kwargs) -> None:
+        super().__init__(**kwargs)
         self._events: list[dict]         = []
         self._current_events: list[dict] = []
         # Track which Monday starts the currently displayed 7-tab week
@@ -200,7 +180,7 @@ class Schedule(Widget):
         with Horizontal(id="sched-body"):
 
             with Vertical(id="sched-sidebar"):
-                with SidebarBox("Overview"):
+                with SidebarBox("OVERVIEW"):
                     with Horizontal(classes="sb-row"):
                         yield Label("Events",   classes="sb-lbl")
                         yield Label("", id="leg-total",    classes="sb-val val-dim")
@@ -211,7 +191,7 @@ class Schedule(Widget):
                         yield Label("Due",      classes="sb-lbl")
                         yield Label("", id="leg-due",      classes="sb-val val-warn")
 
-                with SidebarBox("Categories"):
+                with SidebarBox("CATEGORIES"):
                     with Horizontal(classes="sb-row"):
                         yield Label("[C] Class",    classes="sb-lbl")
                         yield Label("", id="leg-class",    classes="sb-val val-info")
@@ -228,16 +208,13 @@ class Schedule(Widget):
                         yield Label("[P] Personal", classes="sb-lbl")
                         yield Label("", id="leg-personal", classes="sb-val val-dim")
 
-                with SidebarBox("Priority"):
+                with SidebarBox("PRIORITY"):
                     yield Label("[$error]●[/] Critical",  classes="dot-crit", markup=True)
                     yield Label("[$warning]●[/] High",    classes="dot-high", markup=True)
                     yield Label("[$primary]○[/] Medium",  classes="dot-med",  markup=True)
                     yield Label("[$success]○[/] Low",     classes="dot-low",  markup=True)
 
             with TablePanel():
-                with Horizontal(id="tbl-titlebar"):
-                    yield Label("", id="tbl-label")
-                    yield Label("", id="tbl-count")
                 yield DataTable(
                     id="event-table",
                     show_header=True,
@@ -372,12 +349,11 @@ class Schedule(Widget):
 
         table = self.query_one("#event-table", DataTable)
         no_ev = self.query_one("#no-events",   Label)
-        lbl   = self.query_one("#tbl-label",   Label)
-        count = self.query_one("#tbl-count",   Label)
+        tp    = self.query_one(TablePanel)
 
         # ── Title bar ─────────────────────────────────────────────────────────
         if self._all_mode:
-            lbl.update(" ✦ All Events")
+            title = "🗓 ALL EVENTS"
         else:
             d     = self.selected_date
             today = date.today()
@@ -388,11 +364,12 @@ class Schedule(Widget):
             weekday = d.strftime("%A")
             mon_day = f"{d.strftime('%B')} {d.day}"
             sep     = "  ·  " if prefix else ""
-            lbl.update(f" {prefix}{sep}{weekday}, {mon_day}")
+            title = f"🗓 {prefix}{sep}{weekday}, {mon_day}"
 
-        count.update(
-            f"{len(events)} event{'s' if len(events) != 1 else ''}" if events else ""
-        )
+        if events:
+            tp.border_title = f"{title} ({len(events)})"
+        else:
+            tp.border_title = title
 
         # ── Rebuild columns based on mode ─────────────────────────────────────
         table.clear(columns=True)

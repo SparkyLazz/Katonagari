@@ -68,9 +68,14 @@ class Finance(Widget):
         layout: vertical;
         height: 1fr;
         width: 100%;
-        border: round $surface-lighten-2;
+        background: $surface;
         padding: 0 1;
         overflow: hidden hidden;
+        border: round $primary;
+        border-title-align: left;
+        border-title-color: $primary;
+        border-title-style: bold;
+        margin: 0 1 1 1;
     }
 
     #filter-bar {
@@ -120,8 +125,8 @@ class Finance(Widget):
 
     _filter: reactive[str] = reactive("all")
 
-    def __init__(self) -> None:
-        super().__init__()
+    def __init__(self, **kwargs) -> None:
+        super().__init__(**kwargs)
         self._data:    dict       = {"accounts": {}, "transactions": []}
         self._vis_txs: list[dict] = []
 
@@ -164,6 +169,7 @@ class Finance(Widget):
         )
 
     def on_mount(self) -> None:
+        self.query_one("#tx-box").border_title = "💰 TRANSACTIONS"
         self._data = load_data()
         tbl = self.query_one("#tx-table", DataTable)
         tbl.add_columns("DATE", "TYPE", "ACCOUNT", "CATEGORY", "AMOUNT", "NOTES")

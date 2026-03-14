@@ -43,22 +43,25 @@ class AnalysisPanel(Widget):
     .an-card {
         width: 100%;
         height: auto;
-        border: round $surface-lighten-2;
-        padding: 0 1 1 1;
+        background: $surface;
+        border: round;
+        padding: 0 1;
         margin-bottom: 1;
         layout: vertical;
+        border-title-align: left;
+        border-title-style: bold;
     }
-    .an-card-now { border: round $primary; }
+    .an-card-now { border: round $primary 80%; border-title-color: $primary; }
 
     /* rows inside a card */
-    .an-row { height: 1; layout: horizontal; width: 100%; }
+    .an-row { height: 1; layout: horizontal; width: 100%; margin-top: 1; }
     .an-lbl { width: 5; color: $text-muted; content-align: left middle; }
     .an-amt { width: 12; text-align: right; content-align: right middle; }
-    .an-net { height: 1; color: $text-muted; }
+    .an-net { height: 1; color: $text-muted; margin: 1 0; }
 
     /* progress bars */
-    .an-inc-bar { width: 1fr; margin-bottom: 1; }
-    .an-exp-bar { width: 1fr; margin-bottom: 1; }
+    .an-inc-bar { width: 1fr; margin-bottom: 0; }
+    .an-exp-bar { width: 1fr; margin-bottom: 0; }
     .an-inc-bar > .bar--bar { color: $success; }
     .an-exp-bar > .bar--bar { color: $error;   }
     .an-inc-bar > .bar--complete { color: $success; }
@@ -67,12 +70,15 @@ class AnalysisPanel(Widget):
     /* ── summary box ─────────────────────────────────── */
     #an-sum {
         width: 100%; height: auto;
-        border: round $surface-lighten-2;
+        background: $surface;
+        border: round $primary;
         padding: 0 1 1 1;
-        margin-top: 1;
+        margin: 1 0;
+        border-title-align: left;
+        border-title-color: $primary;
+        border-title-style: bold;
     }
-    .an-sum-head { height: 1; color: $primary; text-style: bold; }
-    .an-sum-row  { height: 1; layout: horizontal; width: 100%; }
+    .an-sum-row  { height: 1; layout: horizontal; width: 100%; margin-top: 1; }
     .an-sum-lbl  { width: 1fr; color: $text-muted; }
     .an-sum-val  { width: 16; text-align: right; }
     """
@@ -86,8 +92,8 @@ class AnalysisPanel(Widget):
                 yield Button(lbl, id=f"an-p-{n}",
                              variant="primary" if n == 6 else "default")
         yield Vertical(id="an-chart")
-        with Vertical(id="an-sum"):
-            yield Label("Summary", classes="an-sum-head")
+        with Vertical(id="an-sum") as v:
+            v.border_title = "📊 SUMMARY"
             with Horizontal(classes="an-sum-row"):
                 yield Label("Total Income",  classes="an-sum-lbl")
                 yield Label("", id="an-s-inc", classes="an-sum-val")

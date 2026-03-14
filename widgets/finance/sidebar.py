@@ -26,16 +26,17 @@ class FinanceSidebar(Widget):
     .sb-box {
         width: 100%;
         height: auto;
-        border: round $surface-lighten-2;
-        padding: 0 1 1 1;
+        background: $surface 40%;
+        padding: 1 2;
         margin-bottom: 1;
         overflow: hidden hidden;
+        border-top: solid $primary 10%;
     }
 
     .sb-row { height: 1; layout: horizontal; width: 100%; }
     .sb-lbl { width: 1fr; overflow: hidden hidden; color: $text-muted; }
     .sb-val { width: 9; text-align: right; text-style: bold; }
-    .sb-sep { height: 1; color: $surface-lighten-2; }
+    .sb-sep { height: 1; color: $surface-lighten-2; opacity: 0.3; }
 
     .acc-gopay   { color: $primary; }
     .acc-seabank { color: $success; }
@@ -52,7 +53,7 @@ class FinanceSidebar(Widget):
 
     def compose(self) -> ComposeResult:
         with Vertical(classes="sb-box") as b:
-            b.border_title = "Accounts"
+            yield Label("Accounts", classes="sb-lbl pri bold")
             for acc in ACCOUNTS:
                 with Horizontal(classes="sb-row"):
                     yield Label(
@@ -65,7 +66,7 @@ class FinanceSidebar(Widget):
                 yield Label("", id="bal-total", classes="sb-val")
 
         with Vertical(classes="sb-box") as b2:
-            b2.border_title = "This Month"
+            yield Label("This Month", classes="sb-lbl pri bold")
             with Horizontal(classes="sb-row"):
                 yield Label("↑ Income",  classes="sb-lbl")
                 yield Label("", id="mon-inc", classes="sb-val")
