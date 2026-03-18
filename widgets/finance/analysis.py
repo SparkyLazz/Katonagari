@@ -15,7 +15,6 @@ from services.financeService import (
     verdict,
     volatility,
 )
-from widgets.finance.log import TransactionLog
 
 
 # ─── BurnRate ─────────────────────────────────────────────────────────────────
@@ -129,7 +128,6 @@ class IncomeStability(Widget):
     def on_mount(self) -> None:
         if not self._period.income:
             return
-        max_inc = max(self._period.income)
         for bar, value in zip(self.query(ProgressBar), self._period.income):
             bar.progress = value
 

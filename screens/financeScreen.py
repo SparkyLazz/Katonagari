@@ -1,11 +1,9 @@
 from __future__ import annotations
-
 from textual.app import ComposeResult
 from textual.binding import Binding
 from textual.screen import Screen
 from textual.widget import Widget
 from textual.widgets import Footer, TabbedContent, TabPane
-
 from widgets.finance.analysis import Analysis
 from widgets.finance.log import Log, TransactionLog, BalanceHistory
 from widgets.finance.overview import Overview, SummaryPanel, TransactionTable
@@ -14,11 +12,11 @@ from services.financeService import FinanceService
 
 class TabContent(Widget):
     DEFAULT_CSS = """
-    TabContent { padding: 1; }
-    Tab        { margin-right: 4; }
-    Overview   { height: 1fr; }
-    Analysis   { height: 1fr; }
-    Log        { height: 1fr; }
+    TabContent  { padding: 1; }
+    Tab         { margin-right: 4; }
+    #overview   { height: 1fr; }
+    #pomodoro   { height: 1fr; }
+    #analysis   { height: 1fr; }
     """
 
     BINDINGS = [
