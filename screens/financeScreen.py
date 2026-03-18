@@ -4,6 +4,8 @@ from textual.screen import Screen
 from textual.widget import Widget
 from textual.widgets import Label, Footer, Header, TabbedContent, TabPane
 
+from widgets.finance.analysis import Analysis
+from widgets.finance.log import Log
 from widgets.finance.overview import Overview
 
 
@@ -18,15 +20,18 @@ class TabContent(Widget):
     Overview {
         height: 1fr;
     }
+    Analysis {
+        height: 1fr;
+    }
     """
     def compose(self) -> ComposeResult:
         with TabbedContent():
             with TabPane("Overview", id="overview"):
                 yield Overview()
             with TabPane("Analysis", id="analysis"):
-                yield Label("Analysis")
+                yield Analysis()
             with TabPane("Log", id="log"):
-                yield Label("Log")
+                yield Log()
 
 
 class FinanceScreen(Screen):
