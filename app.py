@@ -11,7 +11,7 @@ class Katonagari(App):
     ]
 
     def on_mount(self) -> None:
-        self.push_screen(FinanceScreen())
+        self.push_screen(PomodoroScreen())
 
     def action_switch_to_finance(self) -> None:
         self.switch_screen(FinanceScreen())
