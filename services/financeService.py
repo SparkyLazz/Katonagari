@@ -17,7 +17,6 @@ from statistics import mean, stdev
 # ─── Paths ───────────────────────────────────────────────────────────────────
 
 DATA_FILE: Path = Path(__file__).resolve().parent.parent / "databases" / "finance.json"
-print(f"[FinanceService] DATA_FILE → {DATA_FILE}")
 
 # ─── Constants ───────────────────────────────────────────────────────────────
 
