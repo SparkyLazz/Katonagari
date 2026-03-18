@@ -1,43 +1,26 @@
+from __future__ import annotations
+
 from textual import on
 from textual.app import ComposeResult
 from textual.binding import Binding
 from textual.containers import Horizontal, Vertical
+from textual.message import Message
 from textual.screen import ModalScreen
 from textual.validation import Length, Number
 from textual.widget import Widget
 from textual.widgets import Button, DataTable, Input, Label, Select, Static
 
-from widgets.finance.service import (
-    CATEGORY_OPTIONS, FinanceService, Transaction,
+from services.financeService import (
+    CATEGORY_OPTIONS,
+    FinanceService,
+    Transaction,
+    fmt_amount,
+    fmt_change,
 )
-
-# ─── Data ────────────────────────────────────────────────────────────────────
-
-BALANCE_HISTORY: list[tuple] = [
-    ("Aug 2023", 7800, 3900, 3900, 19250,     0),
-    ("Sep 2023", 8100, 3600, 4500, 19950,   700),
-    ("Oct 2023", 8200, 3500, 4700, 20650,   700),
-    ("Nov 2023", 7600, 3800, 3800, 21250,   600),
-    ("Dec 2023", 9100, 4100, 5000, 23250,  2000),
-    ("Jan 2024", 9700, 3450, 6250, 24500,  1250),
-]
-
-# ─── Helpers ─────────────────────────────────────────────────────────────────
-
-def _fmt_amount(n: int, sign: bool = True) -> str:
-    prefix = ("+" if n > 0 else "") if sign else ""
-    color  = "green" if n >= 0 else "red"
-    return f"[{color}]{prefix}${abs(n):,}[/]"
-
-def _fmt_change(n: int) -> str:
-    if n == 0: return "[dim]─[/]"
-    if n > 0:  return f"[green]+${n:,}[/]"
-    return f"[red]-${abs(n):,}[/]"
-
 
 # ─── Add Transaction Modal ────────────────────────────────────────────────────
 
-class AddTransactionScreen(ModalScreen):
+class AddTransactionScreen(ModalScreen[Transaction | None]):
     DEFAULT_CSS = """
         AddTransactionScreen {
             align: center middle;
@@ -83,36 +66,35 @@ class AddTransactionScreen(ModalScreen):
     def compose(self) -> ComposeResult:
         with Vertical(id="dialog"):
             yield Static("▸ ADD TRANSACTION", id="title")
-
-            yield Label("Date  (e.g. Jan 01)", classes="field-label")
-            yield Input(placeholder="Jan 01", id="inp-date",
-                        validators=[Length(minimum=4)])
-
+            yield Label("Date  (YYYY-MM-DD)", classes="field-label")
+            yield Input(placeholder="2024-01-15", id="inp-date",
+                        validators=[Length(minimum=10, maximum=10)])
             yield Label("Description", classes="field-label")
             yield Input(placeholder="Salary", id="inp-desc",
                         validators=[Length(minimum=1)])
-
             yield Label("Category", classes="field-label")
             yield Select[str](CATEGORY_OPTIONS, id="inp-cat", prompt="Select category")
-
             yield Label("Amount  (negative = expense)", classes="field-label")
             yield Input(placeholder="-1200", id="inp-amount",
                         validators=[Number()])
-
             yield Static("", id="error")
-
             with Horizontal(id="btn-row"):
                 yield Button("Cancel", variant="default", id="btn-cancel")
                 yield Button("Save",   variant="primary",  id="btn-save")
 
     def _save(self) -> None:
+        from datetime import datetime
         date_val   = self.query_one("#inp-date",   Input).value.strip()
         desc_val   = self.query_one("#inp-desc",   Input).value.strip()
-        cat_val    = self.query_one("#inp-cat",    Select[str]).value
+        cat_val    = self.query_one("#inp-cat",    Select).value
         amount_val = self.query_one("#inp-amount", Input).value.strip()
-
-        if not date_val or not desc_val:
-            self.query_one("#error", Static).update("⚠ Date and description are required.")
+        try:
+            datetime.strptime(date_val, "%Y-%m-%d")
+        except ValueError:
+            self.query_one("#error", Static).update("⚠ Date must be YYYY-MM-DD (e.g. 2024-01-15).")
+            return
+        if not desc_val:
+            self.query_one("#error", Static).update("⚠ Description is required.")
             return
         if cat_val is Select.BLANK:
             self.query_one("#error", Static).update("⚠ Please select a category.")
@@ -122,7 +104,6 @@ class AddTransactionScreen(ModalScreen):
         except ValueError:
             self.query_one("#error", Static).update("⚠ Amount must be a whole number.")
             return
-
         self.dismiss(Transaction(date_val, desc_val, str(cat_val), amount))
 
     def action_cancel(self) -> None: self.dismiss(None)
@@ -139,30 +120,16 @@ class AddTransactionScreen(ModalScreen):
 
 class ConfirmDeleteScreen(ModalScreen[bool]):
     DEFAULT_CSS = """
-        ConfirmDeleteScreen {
-            align: center middle;
-        }
+        ConfirmDeleteScreen { align: center middle; }
         ConfirmDeleteScreen #dialog {
-            width: 44;
-            height: auto;
+            width: 46; height: auto;
             border: round $error;
             background: $surface;
             padding: 1 2;
         }
-        ConfirmDeleteScreen #title {
-            text-style: bold;
-            color: $error;
-            margin-bottom: 1;
-        }
-        ConfirmDeleteScreen #desc {
-            color: $text-muted;
-            margin-bottom: 1;
-        }
-        ConfirmDeleteScreen #btn-row {
-            margin-top: 1;
-            height: 3;
-            align: right middle;
-        }
+        ConfirmDeleteScreen #title { text-style: bold; color: $error; margin-bottom: 1; }
+        ConfirmDeleteScreen #desc  { color: $text-muted; margin-bottom: 1; }
+        ConfirmDeleteScreen #btn-row { margin-top: 1; height: 3; align: right middle; }
         ConfirmDeleteScreen Button { margin-left: 1; }
     """
 
@@ -180,8 +147,8 @@ class ConfirmDeleteScreen(ModalScreen[bool]):
             yield Static("▸ CONFIRM DELETE", id="title")
             yield Static(
                 f"[dim]Delete[/] [bold]{self._tx.desc}[/] "
-                f"[dim]on[/] {self._tx.date} "
-                f"([dim]{_fmt_amount(self._tx.amount)}[dim])?[/]",
+                f"[dim]on[/] {self._tx.display_date} "
+                f"[dim]([/]{fmt_amount(self._tx.amount)}[dim])?[/]",
                 id="desc", markup=True,
             )
             with Horizontal(id="btn-row"):
@@ -193,7 +160,6 @@ class ConfirmDeleteScreen(ModalScreen[bool]):
 
     @on(Button.Pressed, "#btn-cancel")
     def _cancel(self) -> None: self.dismiss(False)
-
     @on(Button.Pressed, "#btn-delete")
     def _delete(self) -> None: self.dismiss(True)
 
@@ -201,6 +167,11 @@ class ConfirmDeleteScreen(ModalScreen[bool]):
 # ─── TransactionLog ───────────────────────────────────────────────────────────
 
 class TransactionLog(Widget):
+    """Editable transaction table. Posts DataChanged after every mutation."""
+
+    class DataChanged(Message):
+        """Broadcast whenever the transaction list is mutated."""
+
     DEFAULT_CSS = """
         TransactionLog {
             border: round $primary;
@@ -237,12 +208,13 @@ class TransactionLog(Widget):
         table.cursor_type = "row"
         for tx in self._svc.transactions:
             table.add_row(
-                f"[dim]{tx.date}[/]",
+                f"[dim]{tx.display_date}[/]",
                 tx.desc,
                 f"[dim]{tx.cat}[/]",
-                _fmt_amount(tx.amount),
-                f"[cyan]${tx.balance:,}[/]",
+                fmt_amount(tx.amount),
+                f"[cyan]RP{tx.balance:,}[/]",
             )
+        self.border_subtitle = f"a add · d delete · {len(self._svc.transactions)} rows"
 
     def action_add_transaction(self) -> None:
         def _on_result(tx: Transaction | None) -> None:
@@ -250,7 +222,7 @@ class TransactionLog(Widget):
                 return
             self._svc.add(tx)
             self._build_table()
-            self.border_subtitle = f"a add · d delete · {len(self._svc.transactions)} rows"
+            self.post_message(TransactionLog.DataChanged())
 
         self.app.push_screen(AddTransactionScreen(), _on_result)
 
@@ -258,7 +230,6 @@ class TransactionLog(Widget):
         table = self.query_one(DataTable)
         if table.row_count == 0:
             return
-
         index = table.cursor_row
         tx    = self._svc.transactions[index]
 
@@ -266,6 +237,7 @@ class TransactionLog(Widget):
             if confirmed:
                 self._svc.remove(index)
                 self._build_table()
+                self.post_message(TransactionLog.DataChanged())
 
         self.app.push_screen(ConfirmDeleteScreen(tx), _on_result)
 
@@ -285,40 +257,46 @@ class BalanceHistory(Widget):
         }
     """
 
+    def __init__(self, *, service: FinanceService, **kwargs) -> None:
+        super().__init__(**kwargs)
+        self._svc = service
+
     def compose(self) -> ComposeResult:
-        self.border_title    = "Balance History"
-        self.border_subtitle = "Aug – Jan 2024"
         yield DataTable(zebra_stripes=True)
 
     def on_mount(self) -> None:
         table = self.query_one(DataTable)
         table.add_columns("Month", "Income", "Expenses", "Net", "Net Worth", "Change")
         table.cursor_type = "row"
+        self._fill_table()
 
-        for month, income, expenses, net, net_worth, change in BALANCE_HISTORY:
+    def _fill_table(self) -> None:
+        summaries = self._svc.monthly_summaries()
+        table     = self.query_one(DataTable)
+        table.clear()
+        if summaries:
+            self.border_title    = "Balance History"
+            self.border_subtitle = f"{summaries[0].month} – {summaries[-1].month}"
+        for s in summaries:
             table.add_row(
-                f"[dim]{month}[/]",
-                _fmt_amount(income,    sign=False),
-                _fmt_amount(-expenses, sign=False),
-                _fmt_amount(net),
-                f"[cyan]${net_worth:,}[/]",
-                _fmt_change(change),
+                f"[dim]{s.month}[/]",
+                fmt_amount(s.income,    sign=False),
+                fmt_amount(-s.expenses, sign=False),
+                fmt_amount(s.net),
+                f"[cyan]RP{s.net_worth:,}[/]",
+                fmt_change(s.change),
             )
 
+    def on_transaction_log_data_changed(self, _: TransactionLog.DataChanged) -> None:
+        self._fill_table()
 
-# ─── Log ─────────────────────────────────────────────────────────────────────
+
+# ─── Log (composite) ─────────────────────────────────────────────────────────
 
 class Log(Widget):
     DEFAULT_CSS = """
-        Log {
-            width: 100%;
-            height: 1fr;
-            padding: 1 2;
-        }
-        Log Vertical {
-            width: 100%;
-            height: 1fr;
-        }
+        Log { width: 100%; height: 1fr; padding: 1 2; }
+        Log Vertical { width: 100%; height: 1fr; }
     """
 
     def __init__(self, *, service: FinanceService, **kwargs) -> None:
@@ -328,4 +306,4 @@ class Log(Widget):
     def compose(self) -> ComposeResult:
         with Vertical():
             yield TransactionLog(service=self._svc)
-            yield BalanceHistory()
+            yield BalanceHistory(service=self._svc)

@@ -1,95 +1,24 @@
-from dataclasses import dataclass
+from __future__ import annotations
+
 from statistics import mean, stdev
+
 from textual.app import ComposeResult
 from textual.containers import Horizontal, Vertical, VerticalScroll
 from textual.widget import Widget
 from textual.widgets import DataTable, Label, ProgressBar, Static, TabbedContent, TabPane
 
-# ─── Raw historical data ─────────────────────────────────────────────────────
-
-MONTHS_ALL: list[str] = ["Aug", "Sep", "Oct", "Nov", "Dec", "Jan"]
-INCOME_ALL: list[int] = [7800, 8100, 8200, 7600, 9100, 9700]
-LIQUID = 11_750
-
-CATEGORY_HISTORY: dict[str, list[int]] = {
-    "Food":         [290,  270,  260,  280,  310,  320],
-    "Health":       [ 45,   45,   45,   45,   45,   45],
-    "Housing":      [1200, 1200, 1200, 1200, 1200, 1200],
-    "Other":        [2090, 1825, 1705, 2025, 2210, 1585],
-    "Subscription": [ 20,   20,   20,   20,   20,   15],
-    "Transport":    [180,  160,  200,  150,  220,  195],
-    "Utility":      [ 75,   80,   70,   80,   95,   90],
-}
-
-# ─── Period ──────────────────────────────────────────────────────────────────
-
-@dataclass(frozen=True)
-class PeriodData:
-    months:       list[str]
-    income:       list[int]
-    category_rows: list[tuple[str, int, int]]  # (cat, this_avg, prev_avg)
-    avg_expense:  float
+from services.financeService import (
+    FinanceService,
+    PeriodData,
+    color_delta,
+    trend_symbol,
+    verdict,
+    volatility,
+)
+from widgets.finance.log import TransactionLog
 
 
-def _build_period(n: int) -> PeriodData:
-    months = MONTHS_ALL[-n:]
-    income = INCOME_ALL[-n:]
-
-    cat_rows = []
-    for cat, history in CATEGORY_HISTORY.items():
-        curr = history[-n:]
-        prev = history[max(0, len(history) - 2 * n) : len(history) - n]
-        cat_rows.append((
-            cat,
-            round(mean(curr)),
-            round(mean(prev)) if prev else curr[0],
-        ))
-
-    monthly_exp = [
-        sum(CATEGORY_HISTORY[c][len(MONTHS_ALL) - n + i] for c in CATEGORY_HISTORY)
-        for i in range(n)
-    ]
-
-    return PeriodData(
-        months=months,
-        income=income,
-        category_rows=cat_rows,
-        avg_expense=mean(monthly_exp),
-    )
-
-
-PERIODS: dict[str, PeriodData] = {
-    "1M": _build_period(1),
-    "3M": _build_period(3),
-    "6M": _build_period(6),
-}
-
-# ─── Helpers ─────────────────────────────────────────────────────────────────
-
-def _verdict(months: float) -> tuple[str, str]:
-    if months < 3:  return "⚠ CRITICAL — build emergency fund", "red"
-    if months < 6:  return "▲ FAIR — aim for 6+ months",        "yellow"
-    if months < 12: return "✓ GOOD",                             "cyan"
-    return "✓ EXCELLENT — 12+ months covered",                   "green"
-
-def _volatility(data: list[int]) -> tuple[str, str]:
-    if len(data) < 2: return "N/A", "dim"
-    cv = stdev(data) / mean(data)
-    if cv < 0.06:  return "LOW",    "green"
-    if cv < 0.15:  return "MEDIUM", "yellow"
-    return "HIGH", "red"
-
-def _color_delta(delta: int) -> str:
-    if delta > 0: return "red"
-    if delta < 0: return "green"
-    return "dim"
-
-def _trend_symbol(delta: int) -> str:
-    if delta > 0: return "[red]▲[/]"
-    if delta < 0: return "[green]▼[/]"
-    return "[dim]─[/]"
-
-# ─── Widgets ─────────────────────────────────────────────────────────────────
+# ─── BurnRate ─────────────────────────────────────────────────────────────────
 
 class BurnRate(Widget):
     DEFAULT_CSS = """
@@ -105,27 +34,30 @@ class BurnRate(Widget):
         BurnRate ProgressBar { width: 100%; margin-top: 1; }
     """
 
-    def __init__(self, period: PeriodData, **kwargs) -> None:
+    def __init__(self, period: PeriodData, liquid: int, **kwargs) -> None:
         super().__init__(**kwargs)
         self._period = period
+        self._liquid = liquid
 
     def compose(self) -> ComposeResult:
         self.border_title = "Burn Rate"
-        runway = LIQUID / self._period.avg_expense
-        verdict_text, verdict_color = _verdict(runway)
-
+        runway = self._liquid / self._period.avg_expense if self._period.avg_expense else 0.0
+        verdict_text, verdict_color = verdict(runway)
         yield Label(f"{runway:.1f} months of runway", id="runway")
         yield ProgressBar(total=12, show_eta=False, show_percentage=False)
         yield Label(
-            f"avg burn [bold]${self._period.avg_expense:,.0f}/mo[/] · liquid [bold]${LIQUID:,}[/]",
+            f"avg burn [bold]${self._period.avg_expense:,.0f}/mo[/]  ·  "
+            f"liquid [bold]${self._liquid:,}[/]",
             id="meta", markup=True,
         )
         yield Label(f"[{verdict_color}]{verdict_text}[/]", id="verdict", markup=True)
 
     def on_mount(self) -> None:
-        runway = LIQUID / self._period.avg_expense
+        runway = self._liquid / self._period.avg_expense if self._period.avg_expense else 0.0
         self.query_one(ProgressBar).progress = min(runway, 12)
 
+
+# ─── IncomeStability ──────────────────────────────────────────────────────────
 
 class IncomeStability(Widget):
     DEFAULT_CSS = """
@@ -153,7 +85,12 @@ class IncomeStability(Widget):
         self.border_title = "Income Stability"
         income = self._period.income
         months = self._period.months
-        vol_label, vol_color = _volatility(income)
+
+        if not income:
+            yield Label("[dim]No data[/]", markup=True)
+            return
+
+        vol_label, vol_color = volatility(income)
         max_inc = max(income)
         avg_inc = mean(income)
         min_inc = min(income)
@@ -182,20 +119,22 @@ class IncomeStability(Widget):
             with Horizontal():
                 yield Label("avg income",   classes="row-label")
                 yield Static(f"${avg_inc:,.0f}", classes="row-value success")
-
             with Horizontal():
                 yield Label("min / max",    classes="row-label")
                 yield Static(f"${min_inc:,} / ${max_inc:,}", classes="row-value")
-
             with Horizontal():
                 yield Label("range spread", classes="row-label")
                 yield Static(f"${spread:,}", classes="row-value accent")
 
     def on_mount(self) -> None:
+        if not self._period.income:
+            return
         max_inc = max(self._period.income)
         for bar, value in zip(self.query(ProgressBar), self._period.income):
             bar.progress = value
 
+
+# ─── SpendingByCategory ───────────────────────────────────────────────────────
 
 class SpendingByCategory(Widget):
     DEFAULT_CSS = """
@@ -212,16 +151,23 @@ class SpendingByCategory(Widget):
         self._period = period
 
     def compose(self) -> ComposeResult:
-        self.border_title = "Spending by Category"
-        self.border_subtitle = f"{self._period.months[0]} – {self._period.months[-1]} 2024"
+        months = self._period.months
+        self.border_title    = "Spending by Category"
+        self.border_subtitle = f"{months[0]} – {months[-1]}" if months else ""
         yield DataTable(zebra_stripes=True)
 
     def on_mount(self) -> None:
+        self._fill()
+
+    def _fill(self) -> None:
         table = self.query_one(DataTable)
+        table.clear(columns=True)
         table.add_columns("Category", "This Period", "Prev Period", "Trend")
         for cat, this, prev in sorted(self._period.category_rows):
-            table.add_row(cat, f"${this:,}", f"${prev:,}", _trend_symbol(this - prev))
+            table.add_row(cat, f"${this:,}", f"${prev:,}", trend_symbol(this - prev))
 
+
+# ─── BiggestMovers ────────────────────────────────────────────────────────────
 
 class BiggestMovers(Widget):
     DEFAULT_CSS = """
@@ -238,33 +184,38 @@ class BiggestMovers(Widget):
         self._period = period
 
     def compose(self) -> ComposeResult:
-        self.border_title = "Biggest Movers"
-        self.border_subtitle = f"{self._period.months[0]} – {self._period.months[-1]} 2024"
+        months = self._period.months
+        self.border_title    = "Biggest Movers"
+        self.border_subtitle = f"{months[0]} – {months[-1]}" if months else ""
         yield DataTable(zebra_stripes=True)
 
     def on_mount(self) -> None:
-        table = self.query_one(DataTable)
-        table.add_columns("Category", "Δ ($)", "Δ (%)", "Dir")
+        self._fill()
 
+    def _fill(self) -> None:
+        table = self.query_one(DataTable)
+        table.clear(columns=True)
+        table.add_columns("Category", "Δ ($)", "Δ (%)", "Dir")
         rows = sorted(
             (
-                (cat, this - prev, (this - prev) / prev * 100 if prev else 0)
+                (cat, this - prev, (this - prev) / prev * 100 if prev else 0.0)
                 for cat, this, prev in self._period.category_rows
             ),
             key=lambda r: abs(r[2]),
             reverse=True,
         )
-
         for cat, delta, pct in rows:
-            color = _color_delta(delta)
-            sign  = "+" if delta > 0 else ""
+            clr  = color_delta(delta)
+            sign = "+" if delta > 0 else ""
             table.add_row(
                 cat,
-                f"[{color}]{sign}{delta:,}[/]",
-                f"[{color}]{sign}{pct:.1f}%[/]",
-                _trend_symbol(delta),
+                f"[{clr}]{sign}{delta:,}[/]",
+                f"[{clr}]{sign}{pct:.1f}%[/]",
+                trend_symbol(delta),
             )
 
+
+# ─── AnalysisContent ──────────────────────────────────────────────────────────
 
 class AnalysisContent(Widget):
     DEFAULT_CSS = """
@@ -274,19 +225,22 @@ class AnalysisContent(Widget):
         AnalysisContent .right-col { width: 1fr; height: 1fr; }
     """
 
-    def __init__(self, period: PeriodData, **kwargs) -> None:
+    def __init__(self, period: PeriodData, liquid: int, **kwargs) -> None:
         super().__init__(**kwargs)
         self._period = period
+        self._liquid = liquid
 
     def compose(self) -> ComposeResult:
         with Horizontal(classes="main-row"):
             with Vertical(classes="left-col"):
-                yield BurnRate(self._period)
+                yield BurnRate(self._period, self._liquid)
                 yield IncomeStability(self._period)
             with Vertical(classes="right-col"):
                 yield SpendingByCategory(self._period)
                 yield BiggestMovers(self._period)
 
+
+# ─── Analysis ─────────────────────────────────────────────────────────────────
 
 class Analysis(Widget):
     DEFAULT_CSS = """
@@ -295,11 +249,39 @@ class Analysis(Widget):
         Analysis TabPane       { height: 1fr; padding: 0; }
     """
 
+    def __init__(self, *, service: FinanceService, **kwargs) -> None:
+        super().__init__(**kwargs)
+        self._svc = service
+
     def compose(self) -> ComposeResult:
+        liquid = self._svc.liquid
         with TabbedContent():
             with TabPane("1M", id="tab-1m"):
-                yield AnalysisContent(PERIODS["1M"])
+                yield AnalysisContent(self._svc.build_period(1), liquid, id="ac-1m")
             with TabPane("3M", id="tab-3m"):
-                yield AnalysisContent(PERIODS["3M"])
+                yield AnalysisContent(self._svc.build_period(3), liquid, id="ac-3m")
             with TabPane("6M", id="tab-6m"):
-                yield AnalysisContent(PERIODS["6M"])
+                yield AnalysisContent(self._svc.build_period(6), liquid, id="ac-6m")
+
+    def refresh_data(self) -> None:
+        """Replace each AnalysisContent with freshly computed period data."""
+        liquid = self._svc.liquid
+
+        def _swap(n: int, ac_id: str, pane_id: str) -> None:
+            pane = self.query_one(f"#{pane_id}", TabPane)
+
+            async def _do() -> None:
+                try:
+                    old = self.query_one(f"#{ac_id}", AnalysisContent)
+                    await old.remove()
+                except Exception:
+                    pass
+                await pane.mount(
+                    AnalysisContent(self._svc.build_period(n), liquid, id=ac_id)
+                )
+
+            self.app.call_later(_do)
+
+        _swap(1, "ac-1m", "tab-1m")
+        _swap(3, "ac-3m", "tab-3m")
+        _swap(6, "ac-6m", "tab-6m")
