@@ -12,13 +12,27 @@ from services.financeService import FinanceService
 
 class TabContent(Widget):
     DEFAULT_CSS = """
-    TabContent  { padding: 1; }
-    Tab         { margin-right: 4; }
-    #overview   { height: 1fr; }
-    #pomodoro   { height: 1fr; }
-    #analysis   { height: 1fr; }
-    """
-
+        TabContent {
+            padding: 1;
+        }
+        Tab {
+            margin-right: 4;
+        }
+        Overview {
+            height: 1fr;
+        }
+        Analysis {
+            height: 1fr;
+        }
+        Log {
+            height: 1fr;
+        }
+        TabContent { padding: 1; }
+        Tab        { margin-right: 4; }
+        Overview   { height: 1fr; }
+        Analysis   { height: 1fr; }
+        Log        { height: 1fr; }
+        """
     BINDINGS = [
         Binding("r", "refresh_all", "Refresh", show=True),
     ]

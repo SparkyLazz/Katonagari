@@ -1,5 +1,4 @@
 from __future__ import annotations
-
 from textual import on
 from textual.app import ComposeResult
 from textual.binding import Binding
@@ -294,10 +293,6 @@ class BalanceHistory(Widget):
 # ─── Log (composite) ─────────────────────────────────────────────────────────
 
 class Log(Widget):
-    DEFAULT_CSS = """
-        Log { width: 100%; height: 1fr; padding: 1 2; }
-        Log Vertical { width: 100%; height: 1fr; }
-    """
 
     def __init__(self, *, service: FinanceService, **kwargs) -> None:
         super().__init__(**kwargs)

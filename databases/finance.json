@@ -4,5 +4,12 @@
     "investments": 0,
     "debt": 0
   },
-  "transactions": []
+  "transactions": [
+    {
+      "date": "2026-04-12",
+      "desc": "Example",
+      "cat": "Income",
+      "amount": 12
+    }
+  ]
 }

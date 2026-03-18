@@ -33,7 +33,7 @@ class Pomodoro(Widget):
                 yield Label("Analysis  —  coming soon")
 
     # Refresh overview whenever the timer logs a completed session
-    def on_pomodoro_timer_session_logged(self, _: PomodoroTimer.SessionLogged) -> None:
+    def on_pomodoro_timer_session_logged(self, _: PomodoroTimer) -> None:
         try:
             self.query_one(PomodoroOverview).refresh_data()
         except Exception:

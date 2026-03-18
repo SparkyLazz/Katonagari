@@ -96,9 +96,9 @@ class PomodoroMain(Widget):
             yield ProgressBar(total=25 * 60, show_eta=False, show_percentage=False)
 
 
-class Log(Widget):
+class SessionLogs(Widget):
     DEFAULT_CSS = """
-    Log {
+    SessionLogs {
         border: round $success;
         height: 1fr;
     }
@@ -151,7 +151,7 @@ class PomodoroTimer(Widget):
 
             with Vertical(id="output-box"):
                 yield PomodoroMain()
-                yield Log()
+                yield SessionLogs()
 
     # ─────────────────────────────────────────
     # KEY ACTIONS
