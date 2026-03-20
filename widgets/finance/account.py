@@ -10,8 +10,11 @@ from textual.message import Message
 from textual.screen import ModalScreen
 from textual.validation import Length, Number
 from textual.widget import Widget
-from textual.widgets import DataTable, Input, Label, Static
+from textual.widgets import DataTable, Input, Label, Select, Static
 from services.financeService import ACCOUNT_TYPES, Account, FinanceService, fmt
+
+ACCOUNT_TYPE_OPTIONS: list[tuple[str, str]] = [(t, t) for t in ACCOUNT_TYPES]
+
 
 class AccountCard(Widget):
     DEFAULT_CSS = """
@@ -45,6 +48,7 @@ class AddAccountScreen(ModalScreen[Account | None]):
     AddAccountScreen #title  { text-style: bold; color: $warning; margin-bottom: 1; }
     AddAccountScreen .fl     { color: $text-muted; margin-top: 1; height: 1; }
     AddAccountScreen Input   { width: 100%; }
+    AddAccountScreen Select  { width: 100%; }
     AddAccountScreen #error  { color: $error; height: 1; margin-top: 1; }
     AddAccountScreen #hint   { color: $text-muted; margin-top: 1; }
     """
@@ -54,21 +58,22 @@ class AddAccountScreen(ModalScreen[Account | None]):
             yield Static("▸ ADD ACCOUNT", id="title")
             yield Label("Account name", classes="fl")
             yield Input(placeholder="SeaBank", id="inp-name", validators=[Length(minimum=1)])
-            yield Label(f"Type ({' / '.join(ACCOUNT_TYPES)})", classes="fl")
-            yield Input(placeholder="Bank", id="inp-type")
+            yield Label("Type", classes="fl")
+            yield Select(ACCOUNT_TYPE_OPTIONS, id="inp-type", prompt="Select type")
             yield Label("Starting amount", classes="fl")
             yield Input(placeholder="0", id="inp-amt", validators=[Number()])
             yield Static("", id="error")
             yield Label("[dim]ctrl+s save · esc cancel[/]", id="hint", markup=True)
     def _save(self) -> None:
         name = self.query_one("#inp-name",Input).value.strip()
-        typ = self.query_one("#inp-type",Input).value.strip()
+        type_select = self.query_one("#inp-type", Select)
+        typ = type_select.value
         amt = self.query_one("#inp-amt",Input).value.strip()
         if not name: self.query_one("#error",Static).update("⚠ Name required."); return
-        if typ not in ACCOUNT_TYPES: self.query_one("#error",Static).update(f"⚠ Type: {', '.join(ACCOUNT_TYPES)}"); return
+        if typ is Select.BLANK: self.query_one("#error",Static).update("⚠ Please select an account type."); return
         try: a = int(amt) if amt else 0
         except ValueError: self.query_one("#error",Static).update("⚠ Integer required."); return
-        self.dismiss(Account("", name, typ, a))
+        self.dismiss(Account("", name, str(typ), a))
     def action_cancel(self) -> None: self.dismiss(None)
     def action_submit(self) -> None: self._save()
 
@@ -80,6 +85,7 @@ class TransferScreen(ModalScreen[dict | None]):
     TransferScreen #title  { text-style: bold; color: $accent; margin-bottom: 1; }
     TransferScreen .fl     { color: $text-muted; margin-top: 1; height: 1; }
     TransferScreen Input   { width: 100%; }
+    TransferScreen Select  { width: 100%; }
     TransferScreen #info   { color: $text-muted; }
     TransferScreen #error  { color: $error; height: 1; margin-top: 1; }
     TransferScreen #hint   { color: $text-muted; margin-top: 1; }
@@ -88,43 +94,39 @@ class TransferScreen(ModalScreen[dict | None]):
     def __init__(self, opts: list[tuple[str,str]], **kw) -> None:
         super().__init__(**kw); self._opts = opts
     def compose(self) -> ComposeResult:
-        info = ", ".join(f"{n} ({a})" for n,a in self._opts)
+        acct_options = [(n, a) for n, a in self._opts]
         with Vertical(id="dialog"):
             yield Static("▸ TRANSFER", id="title")
-            yield Label(f"[dim]{info}[/]", id="info", markup=True)
             yield Label("Date (YYYY-MM-DD)", classes="fl")
             yield Input(placeholder="2026-03-20", id="inp-date")
-            yield Label("From (name or id)", classes="fl")
-            yield Input(placeholder="seabank", id="inp-from")
-            yield Label("To (name or id)", classes="fl")
-            yield Input(placeholder="gopay", id="inp-to")
+            yield Label("From", classes="fl")
+            yield Select(acct_options, id="inp-from", prompt="Select source account")
+            yield Label("To", classes="fl")
+            yield Select(acct_options, id="inp-to", prompt="Select destination account")
             yield Label("Amount", classes="fl")
             yield Input(placeholder="50000", id="inp-amt")
             yield Label("Description (optional)", classes="fl")
             yield Input(placeholder="Top up", id="inp-desc")
             yield Static("", id="error")
             yield Label("[dim]ctrl+s save · esc cancel[/]", id="hint", markup=True)
-    def _resolve(self, val: str) -> str | None:
-        v = val.strip().lower()
-        for n,a in self._opts:
-            if a.lower()==v or n.lower()==v: return a
-        return None
     def _save(self) -> None:
         from datetime import datetime as dt
         date = self.query_one("#inp-date",Input).value.strip()
         err = self.query_one("#error",Static)
         try: dt.strptime(date,"%Y-%m-%d")
         except ValueError: err.update("⚠ YYYY-MM-DD required."); return
-        f = self._resolve(self.query_one("#inp-from",Input).value)
-        t = self._resolve(self.query_one("#inp-to",Input).value)
-        if not f: err.update("⚠ Unknown 'from'."); return
-        if not t: err.update("⚠ Unknown 'to'."); return
-        if f==t: err.update("⚠ Must differ."); return
+        from_select = self.query_one("#inp-from", Select)
+        to_select = self.query_one("#inp-to", Select)
+        f = from_select.value
+        t = to_select.value
+        if f is Select.BLANK: err.update("⚠ Please select source account."); return
+        if t is Select.BLANK: err.update("⚠ Please select destination account."); return
+        if f == t: err.update("⚠ Source and destination must differ."); return
         try:
             amt = int(self.query_one("#inp-amt",Input).value.strip())
             if amt<=0: raise ValueError
-        except ValueError: err.update("⚠ Positive integer."); return
-        self.dismiss({"date":date,"from":f,"to":t,"amount":amt,
+        except ValueError: err.update("⚠ Positive integer required."); return
+        self.dismiss({"date":date,"from":str(f),"to":str(t),"amount":amt,
                        "desc":self.query_one("#inp-desc",Input).value.strip()})
     def action_cancel(self) -> None: self.dismiss(None)
     def action_submit(self) -> None: self._save()

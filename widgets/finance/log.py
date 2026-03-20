@@ -10,8 +10,8 @@ from textual.message import Message
 from textual.screen import ModalScreen
 from textual.validation import Length, Number
 from textual.widget import Widget
-from textual.widgets import DataTable, Input, Label, Static, TabbedContent, TabPane
-from services.financeService import CATEGORIES, FinanceService, Transaction, fmt, fmt_change
+from textual.widgets import DataTable, Input, Label, Select, Static, TabbedContent, TabPane
+from services.financeService import CATEGORIES, CATEGORY_OPTIONS, FinanceService, Transaction, fmt, fmt_change
 
 
 class AddTransactionScreen(ModalScreen[Transaction | None]):
@@ -21,6 +21,7 @@ class AddTransactionScreen(ModalScreen[Transaction | None]):
     AddTransactionScreen #title  { text-style: bold; color: $warning; margin-bottom: 1; }
     AddTransactionScreen .fl     { color: $text-muted; margin-top: 1; height: 1; }
     AddTransactionScreen Input   { width: 100%; }
+    AddTransactionScreen Select  { width: 100%; }
     AddTransactionScreen #error  { color: $error; height: 1; margin-top: 1; }
     AddTransactionScreen #hint   { color: $text-muted; margin-top: 1; }
     """
@@ -28,7 +29,6 @@ class AddTransactionScreen(ModalScreen[Transaction | None]):
     def __init__(self, acct_name: str, acct_id: str, **kw) -> None:
         super().__init__(**kw); self._aname, self._aid = acct_name, acct_id
     def compose(self) -> ComposeResult:
-        cats = ", ".join(CATEGORIES)
         with Vertical(id="dialog"):
             yield Static("▸ ADD TRANSACTION", id="title")
             yield Label(f"Account: [bold]{self._aname}[/]", classes="fl", markup=True)
@@ -36,8 +36,8 @@ class AddTransactionScreen(ModalScreen[Transaction | None]):
             yield Input(placeholder="2024-01-15", id="inp-date", validators=[Length(minimum=10,maximum=10)])
             yield Label("Description", classes="fl")
             yield Input(placeholder="Salary", id="inp-desc", validators=[Length(minimum=1)])
-            yield Label(f"Category ({cats})", classes="fl")
-            yield Input(placeholder="Food", id="inp-cat")
+            yield Label("Category", classes="fl")
+            yield Select(CATEGORY_OPTIONS, id="inp-cat", prompt="Select category")
             yield Label("Amount (negative = expense)", classes="fl")
             yield Input(placeholder="-1200", id="inp-amt", validators=[Number()])
             yield Static("", id="error")
@@ -46,16 +46,17 @@ class AddTransactionScreen(ModalScreen[Transaction | None]):
         from datetime import datetime as dt
         date = self.query_one("#inp-date",Input).value.strip()
         desc = self.query_one("#inp-desc",Input).value.strip()
-        cat = self.query_one("#inp-cat",Input).value.strip()
+        cat_select = self.query_one("#inp-cat", Select)
+        cat = cat_select.value
         amt = self.query_one("#inp-amt",Input).value.strip()
         err = self.query_one("#error",Static)
         try: dt.strptime(date,"%Y-%m-%d")
         except ValueError: err.update("⚠ YYYY-MM-DD required."); return
         if not desc: err.update("⚠ Description required."); return
-        if cat not in CATEGORIES: err.update(f"⚠ Category: {', '.join(CATEGORIES)}"); return
+        if cat is Select.BLANK: err.update("⚠ Please select a category."); return
         try: amount = int(amt)
         except ValueError: err.update("⚠ Integer required."); return
-        self.dismiss(Transaction(date, desc, cat, amount, self._aid))
+        self.dismiss(Transaction(date, desc, str(cat), amount, self._aid))
     def action_cancel(self) -> None: self.dismiss(None)
     def action_submit(self) -> None: self._save()
 
