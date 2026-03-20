@@ -2,23 +2,15 @@
   "meta": {
     "accounts": [
       {
-        "id": "cash",
-        "name": "Cash",
-        "type": "Cash",
-        "base": 0
+        "id": "seabank",
+        "name": "Seabank",
+        "type": "Bank",
+        "amount": 140236
       }
     ],
     "investments": 0,
     "debt": 0
   },
-  "transactions": [
-    {
-      "date": "2026-04-12",
-      "desc": "Example",
-      "cat": "Income",
-      "amount": 12,
-      "account": "cash"
-    }
-  ],
+  "transactions": [],
   "transfers": []
 }
