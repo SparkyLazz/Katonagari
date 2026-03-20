@@ -6,11 +6,38 @@
         "name": "Seabank",
         "type": "Bank",
         "amount": 140236
+      },
+      {
+        "id": "gopay",
+        "name": "GoPay",
+        "type": "E-Wallet",
+        "amount": 24957
+      },
+      {
+        "id": "cash",
+        "name": "Cash",
+        "type": "Cash",
+        "amount": 0
       }
     ],
     "investments": 0,
     "debt": 0
   },
-  "transactions": [],
+  "transactions": [
+    {
+      "date": "2026-03-20",
+      "desc": "Setup",
+      "cat": "Income",
+      "amount": 140236,
+      "account": "seabank"
+    },
+    {
+      "date": "2026-03-20",
+      "desc": "Setup",
+      "cat": "Income",
+      "amount": 24957,
+      "account": "gopay"
+    }
+  ],
   "transfers": []
 }
