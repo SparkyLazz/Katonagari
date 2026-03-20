@@ -77,7 +77,7 @@ class FinanceService:
 def _fmt_amount(n: int, sign: bool = True) -> str:
     prefix = ("+" if n > 0 else "") if sign else ""
     color  = "green" if n >= 0 else "red"
-    return f"[{color}]{prefix}${abs(n):,}[/]"
+    return f"[{color}]{prefix}RP {abs(n):,}[/]"
 
 
 # ─── Add Transaction Modal ────────────────────────────────────────────────────
@@ -295,7 +295,7 @@ class TransactionLog(Widget):
                 tx.desc,
                 f"[dim]{tx.cat}[/]",
                 _fmt_amount(tx.amount),
-                f"[cyan]${tx.balance:,}[/]",
+                f"[cyan]RP {tx.balance:,}[/]",
             )
 
     def action_add_transaction(self) -> None:

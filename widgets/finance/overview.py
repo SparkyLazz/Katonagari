@@ -3,7 +3,7 @@ from __future__ import annotations
 from textual.app import ComposeResult
 from textual.containers import Horizontal, Vertical
 from textual.widget import Widget
-from textual.widgets import DataTable, Label, Static
+from textual.widgets import DataTable, Label, Static, TabbedContent, TabPane
 
 from services.financeService import FinanceService, fmt_amount
 from widgets.finance.log import TransactionLog
@@ -14,10 +14,7 @@ from widgets.finance.log import TransactionLog
 class StatCard(Widget):
     DEFAULT_CSS = """
     StatCard {
-        border: round;
-        padding: 0 1;
-        width: 1fr;
-        height: 1fr;
+        border: round; padding: 0 1; width: 1fr; height: 1fr;
     }
     StatCard .card-value { text-style: bold; color: $text; }
     StatCard .card-diff  { color: $text-muted; }
@@ -56,10 +53,7 @@ class StatCard(Widget):
 class SummaryPanel(Widget):
     DEFAULT_CSS = """
     SummaryPanel {
-        border: round $primary;
-        width: 28;
-        height: 1fr;
-        padding: 1 2;
+        border: round $primary; width: 28; height: 1fr; padding: 1 2;
     }
     .big-balance { text-style: bold; color: $success; }
     .divider     { color: $primary; }
@@ -67,67 +61,61 @@ class SummaryPanel(Widget):
     .row-value   { text-style: bold; }
     """
 
-    def __init__(self, *, service: FinanceService, **kwargs) -> None:
+    def __init__(self, *, service: FinanceService, account: str | None = None, **kwargs) -> None:
         super().__init__(**kwargs)
         self._svc = service
+        self._account = account
 
     def compose(self) -> ComposeResult:
         self.border_title = "Summary"
-        s = self._svc.current_stats()
-        yield Static(f"${s.get('net_worth', 0):,}", classes="big-balance", id="sum-nw")
+        s = self._svc.current_stats(self._account)
+        yield Static(f"RP{s.get('net_worth', 0):,}", classes="big-balance", id=f"sum-nw-{self.id}")
         yield Static("─" * 20, classes="divider")
-
         with Horizontal():
             yield Label("Income",      classes="row-label")
-            yield Static(f"${s.get('income', 0):,}",      classes="row-value success", id="sum-income")
+            yield Static(f"RP{s.get('income', 0):,}",      classes="row-value success", id=f"sum-inc-{self.id}")
         with Horizontal():
             yield Label("Expenses",    classes="row-label")
-            yield Static(f"${s.get('expenses', 0):,}",    classes="row-value error",   id="sum-expenses")
+            yield Static(f"RP{s.get('expenses', 0):,}",    classes="row-value error",   id=f"sum-exp-{self.id}")
         with Horizontal():
             yield Label("Savings",     classes="row-label")
-            yield Static(f"${s.get('net_savings', 0):,}", classes="row-value accent",  id="sum-savings")
-
+            yield Static(f"RP{s.get('net_savings', 0):,}", classes="row-value accent",  id=f"sum-sav-{self.id}")
         yield Static("─" * 20, classes="divider")
-
         with Horizontal():
             yield Label("Investments", classes="row-label")
-            yield Static(f"${s.get('investments', 0):,}", classes="row-value",        id="sum-invest")
+            yield Static(f"RP{s.get('investments', 0):,}", classes="row-value",        id=f"sum-inv-{self.id}")
         with Horizontal():
             yield Label("Debt",        classes="row-label")
-            yield Static(f"-${s.get('debt', 0):,}",       classes="row-value error",  id="sum-debt")
-
+            yield Static(f"-RP{s.get('debt', 0):,}",       classes="row-value error",  id=f"sum-dbt-{self.id}")
         yield Static("─" * 20, classes="divider")
-
-        sr       = s.get("save_rate", 0.0)
-        sr_ch    = s.get("save_rate_change", 0.0)
-        sr_sign  = "+" if sr_ch >= 0 else ""
-        sr_color = "success" if sr_ch >= 0 else "error"
-
+        sr    = s.get("save_rate", 0.0)
+        sr_ch = s.get("save_rate_change", 0.0)
         with Horizontal():
             yield Label("Save rate",   classes="row-label")
-            yield Static(f"{sr:.1f}%", classes="row-value accent",    id="sum-saverate")
+            yield Static(f"{sr:.1f}%", classes="row-value accent", id=f"sum-sr-{self.id}")
         with Horizontal():
             yield Label("vs last mo.", classes="row-label")
-            yield Static(f"{sr_sign}{sr_ch:.1f}%",
-                         classes=f"row-value {sr_color}", id="sum-srchange")
+            sr_sign = "+" if sr_ch >= 0 else ""
+            sr_col  = "success" if sr_ch >= 0 else "error"
+            yield Static(f"{sr_sign}{sr_ch:.1f}%", classes=f"row-value {sr_col}", id=f"sum-src-{self.id}")
 
     def refresh_data(self) -> None:
-        s        = self._svc.current_stats()
-        sr       = s.get("save_rate", 0.0)
-        sr_ch    = s.get("save_rate_change", 0.0)
-        sr_sign  = "+" if sr_ch >= 0 else ""
-        sr_color = "success" if sr_ch >= 0 else "error"
-
-        self.query_one("#sum-nw",       Static).update(f"${s.get('net_worth', 0):,}")
-        self.query_one("#sum-income",   Static).update(f"${s.get('income', 0):,}")
-        self.query_one("#sum-expenses", Static).update(f"${s.get('expenses', 0):,}")
-        self.query_one("#sum-savings",  Static).update(f"${s.get('net_savings', 0):,}")
-        self.query_one("#sum-invest",   Static).update(f"${s.get('investments', 0):,}")
-        self.query_one("#sum-debt",     Static).update(f"-${s.get('debt', 0):,}")
-        self.query_one("#sum-saverate", Static).update(f"{sr:.1f}%")
-        self.query_one("#sum-srchange", Static).update(f"{sr_sign}{sr_ch:.1f}%")
-        self.query_one("#sum-srchange", Static).remove_class("success", "error")
-        self.query_one("#sum-srchange", Static).add_class(sr_color)
+        s     = self._svc.current_stats(self._account)
+        sr    = s.get("save_rate", 0.0)
+        sr_ch = s.get("save_rate_change", 0.0)
+        sr_sign = "+" if sr_ch >= 0 else ""
+        sr_col  = "success" if sr_ch >= 0 else "error"
+        self.query_one(f"#sum-nw-{self.id}",  Static).update(f"RP{s.get('net_worth', 0):,}")
+        self.query_one(f"#sum-inc-{self.id}",  Static).update(f"RP{s.get('income', 0):,}")
+        self.query_one(f"#sum-exp-{self.id}",  Static).update(f"RP{s.get('expenses', 0):,}")
+        self.query_one(f"#sum-sav-{self.id}",  Static).update(f"RP{s.get('net_savings', 0):,}")
+        self.query_one(f"#sum-inv-{self.id}",  Static).update(f"RP{s.get('investments', 0):,}")
+        self.query_one(f"#sum-dbt-{self.id}",  Static).update(f"-RP{s.get('debt', 0):,}")
+        self.query_one(f"#sum-sr-{self.id}",   Static).update(f"{sr:.1f}%")
+        src = self.query_one(f"#sum-src-{self.id}", Static)
+        src.update(f"{sr_sign}{sr_ch:.1f}%")
+        src.remove_class("success", "error")
+        src.add_class(sr_col)
 
     def on_transaction_log_data_changed(self, _: TransactionLog.DataChanged) -> None:
         self.refresh_data()
@@ -138,10 +126,7 @@ class SummaryPanel(Widget):
 class TransactionTable(Widget):
     DEFAULT_CSS = """
     TransactionTable {
-        width: 1fr;
-        height: 1fr;
-        border: round $accent;
-        padding: 0;
+        width: 1fr; height: 1fr; border: round $accent; padding: 0;
     }
     TransactionTable DataTable        { height: 1fr; background: transparent; }
     DataTable > .datatable--header    { background: $panel;  color: $text-muted; text-style: bold; }
@@ -150,16 +135,20 @@ class TransactionTable(Widget):
     DataTable > .datatable--cursor    { background: $accent 20%; color: $text; }
     """
 
-    def __init__(self, *, service: FinanceService, **kwargs) -> None:
+    def __init__(self, *, service: FinanceService, account: str | None = None, **kwargs) -> None:
         super().__init__(**kwargs)
         self._svc = service
+        self._account = account
 
     def compose(self) -> ComposeResult:
-        stats = self._svc.current_stats()
+        stats = self._svc.current_stats(self._account)
         self.border_title    = "Transactions"
         self.border_subtitle = stats.get("current_month", "")
         table = DataTable(zebra_stripes=True)
-        table.add_columns("Date", "Description", "Category", "Amount")
+        if self._account is None:
+            table.add_columns("Date", "Description", "Account", "Category", "Amount")
+        else:
+            table.add_columns("Date", "Description", "Category", "Amount")
         yield table
 
     def on_mount(self) -> None:
@@ -168,91 +157,116 @@ class TransactionTable(Widget):
     def _fill_table(self) -> None:
         table = self.query_one(DataTable)
         table.clear()
-        for tx in self._svc.transactions[-10:]:
-            table.add_row(
-                f"[dim]{tx.display_date}[/]",
-                tx.desc,
-                f"[dim]{tx.cat}[/]",
-                fmt_amount(tx.amount),
-            )
-        stats = self._svc.current_stats()
+        txs = self._svc.transactions_for(self._account)
+        for tx in txs[-10:]:
+            if self._account is None:
+                acct_name = self._svc.account_name(tx.account)
+                table.add_row(
+                    f"[dim]{tx.display_date}[/]", tx.desc,
+                    f"[dim]{acct_name}[/]", f"[dim]{tx.cat}[/]", fmt_amount(tx.amount),
+                )
+            else:
+                table.add_row(
+                    f"[dim]{tx.display_date}[/]", tx.desc,
+                    f"[dim]{tx.cat}[/]", fmt_amount(tx.amount),
+                )
+        stats = self._svc.current_stats(self._account)
         self.border_subtitle = stats.get("current_month", "")
+
+    def refresh_data(self) -> None:
+        self._fill_table()
 
     def on_transaction_log_data_changed(self, _: TransactionLog.DataChanged) -> None:
         self._fill_table()
 
 
-# ─── Overview ─────────────────────────────────────────────────────────────────
+# ─── OverviewContent (one account view) ──────────────────────────────────────
+
+class OverviewContent(Widget):
+    DEFAULT_CSS = """
+        OverviewContent { width: 100%; height: 1fr; padding: 1 2; }
+        .stat-row   { height: 7; }
+        .bottom-row { width: 100%; height: 1fr; }
+    """
+
+    def __init__(self, *, service: FinanceService, account: str | None = None, **kwargs) -> None:
+        super().__init__(**kwargs)
+        self._svc = service
+        self._account = account
+
+    def _stat_values(self) -> dict:
+        s = self._svc.current_stats(self._account)
+        return dict(
+            nw=s.get("net_worth", 0), income=s.get("income", 0),
+            expenses=s.get("expenses", 0), net_sav=s.get("net_savings", 0),
+            save_r=s.get("save_rate", 0.0), nw_pct=s.get("nw_change_pct", 0.0),
+            inc_ch=s.get("income_change", 0), exp_pct=s.get("expenses_pct", 0.0),
+        )
+
+    def compose(self) -> ComposeResult:
+        v = self._stat_values()
+        nw_s  = "+" if v["nw_pct"]  >= 0 else ""
+        inc_s = "+" if v["inc_ch"]  >= 0 else ""
+        exp_s = "+" if v["exp_pct"] >= 0 else ""
+
+        sfx = self._account or "all"
+        with Horizontal(classes="stat-row"):
+            yield StatCard("Total Balance",  f"RP{v['nw']:,}",
+                           f"{nw_s}{v['nw_pct']:.1f}% this month",   "success", id=f"card-bal-{sfx}")
+            yield StatCard("Monthly Income", f"RP{v['income']:,}",
+                           f"{inc_s}RP{abs(v['inc_ch']):,} vs last",  "success", id=f"card-inc-{sfx}")
+            yield StatCard("Expenses",       f"RP{v['expenses']:,}",
+                           f"{exp_s}{v['exp_pct']:.1f}% vs last",     "error",   id=f"card-exp-{sfx}")
+            yield StatCard("Net Savings",    f"RP{v['net_sav']:,}",
+                           f"{v['save_r']:.1f}% save rate",           "accent",  id=f"card-sav-{sfx}")
+
+        with Horizontal(classes="bottom-row"):
+            yield SummaryPanel(service=self._svc, account=self._account, id=f"sumpan-{sfx}")
+            yield TransactionTable(service=self._svc, account=self._account, id=f"txtbl-{sfx}")
+
+    def refresh_data(self) -> None:
+        v = self._stat_values()
+        nw_s  = "+" if v["nw_pct"]  >= 0 else ""
+        inc_s = "+" if v["inc_ch"]  >= 0 else ""
+        exp_s = "+" if v["exp_pct"] >= 0 else ""
+        sfx = self._account or "all"
+
+        self.query_one(f"#card-bal-{sfx}", StatCard).set_content(
+            f"RP{v['nw']:,}", f"{nw_s}{v['nw_pct']:.1f}% this month")
+        self.query_one(f"#card-inc-{sfx}", StatCard).set_content(
+            f"RP{v['income']:,}", f"{inc_s}RP{abs(v['inc_ch']):,} vs last")
+        self.query_one(f"#card-exp-{sfx}", StatCard).set_content(
+            f"RP{v['expenses']:,}", f"{exp_s}{v['exp_pct']:.1f}% vs last")
+        self.query_one(f"#card-sav-{sfx}", StatCard).set_content(
+            f"RP{v['net_sav']:,}", f"{v['save_r']:.1f}% save rate")
+
+        try: self.query_one(f"#sumpan-{sfx}", SummaryPanel).refresh_data()
+        except Exception: pass
+        try: self.query_one(f"#txtbl-{sfx}", TransactionTable).refresh_data()
+        except Exception: pass
+
+
+# ─── Overview (tabbed by account) ─────────────────────────────────────────────
 
 class Overview(Widget):
     DEFAULT_CSS = """
-        Overview { width: 100%; height: 1fr; padding: 1 2; }
-        .stat-row   { height: 7; }
-        .bottom-row { width: 100%; height: 1fr; }
+        Overview { width: 100%; height: 1fr; }
+        Overview TabbedContent { height: 1fr; }
+        Overview TabPane       { height: 1fr; padding: 0; }
     """
 
     def __init__(self, *, service: FinanceService, **kwargs) -> None:
         super().__init__(**kwargs)
         self._svc = service
 
-    def _stat_values(self) -> dict:
-        s        = self._svc.current_stats()
-        nw       = s.get("net_worth",     0)
-        income   = s.get("income",        0)
-        expenses = s.get("expenses",      0)
-        net_sav  = s.get("net_savings",   0)
-        save_r   = s.get("save_rate",     0.0)
-        nw_pct   = s.get("nw_change_pct", 0.0)
-        inc_ch   = s.get("income_change", 0)
-        exp_pct  = s.get("expenses_pct",  0.0)
-        return dict(
-            nw=nw, income=income, expenses=expenses, net_sav=net_sav,
-            save_r=save_r, nw_pct=nw_pct, inc_ch=inc_ch, exp_pct=exp_pct,
-        )
-
     def compose(self) -> ComposeResult:
-        v = self._stat_values()
-        nw_sign  = "+" if v["nw_pct"]  >= 0 else ""
-        inc_sign = "+" if v["inc_ch"]  >= 0 else ""
-        exp_sign = "+" if v["exp_pct"] >= 0 else ""
-
-        with Horizontal(classes="stat-row"):
-            yield StatCard("Total Balance",  f"${v['nw']:,}",
-                           f"{nw_sign}{v['nw_pct']:.1f}% this month",  "success",
-                           id="card-balance")
-            yield StatCard("Monthly Income", f"${v['income']:,}",
-                           f"{inc_sign}${abs(v['inc_ch']):,} vs last month", "success",
-                           id="card-income")
-            yield StatCard("Expenses",       f"${v['expenses']:,}",
-                           f"{exp_sign}{v['exp_pct']:.1f}% vs last month",  "error",
-                           id="card-expenses")
-            yield StatCard("Net Savings",    f"${v['net_sav']:,}",
-                           f"{v['save_r']:.1f}% save rate",             "accent",
-                           id="card-savings")
-
-        with Horizontal(classes="bottom-row"):
-            yield SummaryPanel(service=self._svc)
-            yield TransactionTable(service=self._svc)
+        with TabbedContent():
+            with TabPane("All", id="ov-all"):
+                yield OverviewContent(service=self._svc, account=None, id="ovc-all")
+            for acct in self._svc.accounts:
+                with TabPane(acct.name, id=f"ov-{acct.id}"):
+                    yield OverviewContent(service=self._svc, account=acct.id, id=f"ovc-{acct.id}")
 
     def on_transaction_log_data_changed(self, _: TransactionLog.DataChanged) -> None:
-        v = self._stat_values()
-        nw_sign  = "+" if v["nw_pct"]  >= 0 else ""
-        inc_sign = "+" if v["inc_ch"]  >= 0 else ""
-        exp_sign = "+" if v["exp_pct"] >= 0 else ""
-
-        self.query_one("#card-balance",  StatCard).set_content(
-            f"${v['nw']:,}",
-            f"{nw_sign}{v['nw_pct']:.1f}% this month",
-        )
-        self.query_one("#card-income",   StatCard).set_content(
-            f"${v['income']:,}",
-            f"{inc_sign}${abs(v['inc_ch']):,} vs last month",
-        )
-        self.query_one("#card-expenses", StatCard).set_content(
-            f"${v['expenses']:,}",
-            f"{exp_sign}{v['exp_pct']:.1f}% vs last month",
-        )
-        self.query_one("#card-savings",  StatCard).set_content(
-            f"${v['net_sav']:,}",
-            f"{v['save_r']:.1f}% save rate",
-        )
+        for ovc in self.query(OverviewContent):
+            ovc.refresh_data()
