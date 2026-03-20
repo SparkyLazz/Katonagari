@@ -6,6 +6,7 @@ from textual.widget import Widget
 from textual.widgets import Footer, Label, TabbedContent, TabPane
 
 from services.pomodoroService import PomodoroService
+from widgets.pomodoro.analysis import PomodoroAnalysis
 from widgets.pomodoro.overview import PomodoroOverview
 from widgets.pomodoro.timer import PomodoroTimer
 
@@ -30,12 +31,16 @@ class Pomodoro(Widget):
             with TabPane("Pomodoro", id="pomodoro"):
                 yield PomodoroTimer(service=self._svc, id="pom-timer")
             with TabPane("Analysis", id="analysis"):
-                yield Label("Analysis  —  coming soon")
+                yield PomodoroAnalysis(service=self._svc, id="pom-analysis")
 
-    # Refresh overview whenever the timer logs a completed session
-    def on_pomodoro_timer_session_logged(self, _: PomodoroTimer) -> None:
+    def on_pomodoro_timer_session_logged(self, _: PomodoroTimer.SessionLogged) -> None:
+        """Refresh both Overview and Analysis after every saved session."""
         try:
             self.query_one(PomodoroOverview).refresh_data()
+        except Exception:
+            pass
+        try:
+            self.query_one(PomodoroAnalysis).refresh_data()
         except Exception:
             pass
 
